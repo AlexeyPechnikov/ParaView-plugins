@@ -1,4 +1,4 @@
-# ParaView-plugins
+# N-Cube ParaView plugin for 3D/4D Geological Modeling and Visualization
 
 ## About the project
 
