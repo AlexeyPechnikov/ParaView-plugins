@@ -17,6 +17,14 @@ pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
 
+### N-Cube ParaView Plugin Sources:
+
+**NCubeShapefileOnTopography** - data source for 2D/3D Shapefile or GeoJSON. Z coordinates are zeroes for 2D geometry. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
+
+**NCubeShapefileOnTopographyBlock** - the same as **NCubeShapefileOnTopography** and optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers.
+
+This data source will be ready soon: **N-Cube Topography Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. 
+
 ## Project Goals
 
 For our 3D geological modeling we need a good 3D visualization and data processing tools. We tested many commercial and Open Source 3D visualization packages and programming libraries and for our needs Open Source ParaView software and it's core VTK library are the best one. [ParaView](https://www.paraview.org/) is the great 3D visualization and processing tool but without GIS data support. To fix the lack, we created ParaView geospatial plugins for our internal usage.
