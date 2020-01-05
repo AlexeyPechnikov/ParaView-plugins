@@ -6,9 +6,11 @@
 
 ## How to Use
 
+Recent ParaView release 5.7 for MacOS integrated with Python 2.7 and so we need to use Python 2.7 installation and modules on MacOS. On Windows and Linux operation systems we can select between Python 2.7 and 3.7. Anyway, use the same Python as your ParaView build requires.
+
 Follow instructions to install Python 2.7 and configure PYTHONPATH environment variable as this article describing: https://www.linkedin.com/pulse/paraview-pvgeo-plugins-howto-alexey-pechnikov/
 
-Install additional Python 2.7 modules required for the code below:
+Install required Python 2.7 modules:
 ```
 pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
 ```
