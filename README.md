@@ -15,7 +15,7 @@ pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
 
 Load [N-Cube ParaView plugin Python source file](NCubeParaViewPlugin.py) placed anywhere on your computer.
 
-## Project History
+## Project Goals
 
 For our 3D geological modeling we need a good 3D visualization and data processing tools. We tested many commercial and Open Source 3D visualization packages and programming libraries and for our needs Open Source ParaView software and it's core VTK library are the best one. [ParaView](https://www.paraview.org/) is the great 3D visualization and processing tool but without GIS data support. To fix the lack, we created ParaView geospatial plugins for our internal usage.
 
