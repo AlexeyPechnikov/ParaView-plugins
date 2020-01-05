@@ -25,15 +25,15 @@ See also our code snippets repository [ParaView Programmable Source and Programm
 
 ## Screenshots
 
-![NCubeShapefileOnTopographySource](NCubeShapefileOnTopographySource1.jpg)
+![NCubeShapefileOnTopographySource](screenshots/NCubeShapefileOnTopographySource1.jpg)
 
-![NCubeShapefileOnTopographyBlockSource](NCubeShapefileOnTopographyBlockSource1.jpg)
+![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource1.jpg)
 
-![NCubeShapefileOnTopographyBlockSource](NCubeShapefileOnTopographyBlockSource2.jpg)
+![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource2.jpg)
 
-![Search ParaView Sources for N-Cube Plugin Data Sources](NCubeSources.jpg)
+![Search ParaView Sources for N-Cube Plugin Data Sources](screenshots/NCubeSources.jpg)
 
-![Load ParaView N-Cube Plugin](NcubePlugin.jpg)
+![Load ParaView N-Cube Plugin](screenshots/NcubePlugin.jpg)
 
 ## Used Technologies
 
