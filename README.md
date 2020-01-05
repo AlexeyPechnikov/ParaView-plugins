@@ -4,7 +4,7 @@
 
 [N-Cube ParaView plugin](NCubeParaViewPlugin.py) is a set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
-## HOW to Use
+## How to Use
 
 Follow instructions to install Python 2.7 and configure PYTHONPATH environment variable as this article describing: https://www.linkedin.com/pulse/paraview-pvgeo-plugins-howto-alexey-pechnikov/
 
