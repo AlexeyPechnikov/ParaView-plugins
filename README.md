@@ -23,6 +23,18 @@ For our 3D geological modeling we need a good 3D visualization and data processi
 
 See also our code snippets repository [ParaView Programmable Source and Programmable Filter examples](https://github.com/mobigroup/gis-snippets/tree/master/ParaView) and [A brief explanation of the 3D Density-Depth model construction](https://www.linkedin.com/pulse/brief-explanation-3d-density-depth-model-construction-pechnikov/).
 
+## Screenshots
+
+[NCubeShapefileOnTopographyBlockSource](NCubeShapefileOnTopographyBlockSource1.jpg)
+
+[NCubeShapefileOnTopographyBlockSource](NCubeShapefileOnTopographyBlockSource2.jpg)
+
+[NCubeShapefileOnTopographySource](NCubeShapefileOnTopographySource1.jpg)
+
+[Search ParaView Sources for N-Cube Plugin Data Sources](NCubeSources.jpg)
+
+[Load ParaView N-Cube Plugin](NcubePlugin.jpg)
+
 ## Used Technologies
 
 We prefer stable and modern programming libraries and technologies:
