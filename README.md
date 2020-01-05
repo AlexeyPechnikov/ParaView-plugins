@@ -2,7 +2,7 @@
 
 ## About the project
 
-N-Cube ParaView plugin is a set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCubeParaViewPlugin.py) is a set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
 ## HOW to Use
 
@@ -13,7 +13,7 @@ Install additional Python 2.7 modules required for the code below:
 pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
 ```
 
-Load N-Cube ParaView plugin from the Python source file placed anywhere.
+Load [N-Cube ParaView plugin Python source file](NCubeParaViewPlugin.py) placed anywhere on your computer.
 
 ## Project History
 
