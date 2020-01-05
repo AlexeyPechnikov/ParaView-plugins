@@ -2,7 +2,7 @@
 
 ## About the project
 
-[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is a set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
 ## How to Use
 
