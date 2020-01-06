@@ -25,7 +25,7 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
     if (len(df)) == 0:
         return []
     if shapecol is not None:
-        df = df.sort_values(shapecol).set_index(shapecol)
+        return df.sort_values(shapecol).set_index(shapecol)
     #print ("shapecol",shapecol)
     return df
 
@@ -37,6 +37,7 @@ def _NCubeRasterLoad(rastername):
         return
     raster = xr.open_rasterio(rastername).squeeze()
     raster.values[raster.values == raster.nodatavals[0]] = np.nan
+    #raster.values[raster.values == raster.nodatavals[0]] = 0
 
     return raster
 
@@ -161,16 +162,12 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
         else:
             coords = geom.coords
 
-        count = (len(coords))
-        #print ("count",count)
-        vtk_cells.InsertNextCell(count)
-
-        xs = coords.xy[0]
-        ys = coords.xy[1]
+        xs = np.array(coords.xy[0])
+        ys = np.array(coords.xy[1])
         if len(coords.xy) > 2:
-            zs = coords.xy[2]
+            zs = np.array(coords.xy[2])
         else:
-            zs = [0]*len(xs)
+            zs = np.array([0]*len(xs))
         # find nearest raster values for every geometry point
         if dem is not None:
             zs = dem.sel(x=xr.DataArray(xs), y=xr.DataArray(ys), method='nearest').values
@@ -178,9 +175,17 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
 #            yy = dem.y.sel(y=xr.DataArray(ys), method='nearest').values
 #            xx = dem.x.sel(x=xr.DataArray(xs), method='nearest').values
 #            zs = dem.sel(x=xr.DataArray(xx), y=xr.DataArray(yy)).values
-        for (x,y,z) in zip(xs,ys,zs):
-            pointId = vtk_points.InsertNextPoint(x, y, z)
-            vtk_cells.InsertCellPoint(pointId)
+        #print ("xs", xs)
+        mask = np.where(~np.isnan(zs))[0]
+        mask2 = np.where(np.diff(mask)!=1)[0]+1
+        xs = np.split(xs[mask], mask2)
+        ys = np.split(ys[mask], mask2)
+        zs = np.split(zs[mask], mask2)
+        for (_xs,_ys,_zs) in zip(xs,ys,zs):
+            vtk_cells.InsertNextCell(len(_xs))
+            for (x,y,z) in zip(_xs,_ys,_zs):
+                pointId = vtk_points.InsertNextPoint(x, y, z)
+                vtk_cells.InsertCellPoint(pointId)
 
     vtk_polyData = vtkPolyData()
     vtk_polyData.SetPoints(vtk_points)
@@ -264,13 +269,12 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
     else:
         values = dem.values.T
 
-    # create raster mask
+    # create raster mask by geometry and for NaNs
     (yy,xx) = np.meshgrid(ys, xs)
+    mask = ~np.isnan(values)
     if geometry is not None:
-        mask = [sp.geometry.Point(x,y).intersects(geometry) for x,y in zip(xx.ravel('F'), yy.ravel('F'))]
+        mask = [sp.geometry.Point(x,y).intersects(geometry) if m else m for (x,y,m) in zip(xx.ravel('F'), yy.ravel('F'), mask.ravel('F'))]
         mask = np.array(mask).reshape(len(ys),len(xs))
-    else:
-        mask = np.ones([len(ys),len(xs)])
     #print (_dem.shape,mask.shape)
 
     # Define points and triangles for mesh
@@ -283,7 +287,7 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
     for j in range(0,len(ys)-2):
         for i in range(0,len(xs)-2):
             # check area
-            if not (mask[j,i] or mask[j+1,i] or mask[j,i+1] or mask[j+1,i+1]):
+            if not mask[j,i] or not mask[j+1,i] or not mask[j,i+1] or not mask[j+1,i+1]:
                 continue
 
             # Triangle 1
@@ -361,7 +365,7 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     if df is None:
         vtk_polyData = _NCubeTopographyToPolyData(dem, geometry=None)
         return [(_str('None'),vtk_polyData)]
-    
+
     # crop topography by geometries
 
     # crop geometry and topography together
@@ -399,9 +403,11 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
 
     return vtk_blocks
 
+
 #------------------------------------------------------------------------------
-# ParaView plugin code
+# N-Cube Shapefile On Topography Source
 #------------------------------------------------------------------------------
+
 @smproxy.source(name="NCubeGeometryOnTopographySource",
        label="N-Cube Shapefile On Topography Source")
 class NCubeGeometryOnTopographySource(VTKPythonAlgorithmBase):
@@ -427,7 +433,6 @@ class NCubeGeometryOnTopographySource(VTKPythonAlgorithmBase):
         vtk_blocks = _NCubeGeometryOnTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
         if vtk_blocks == []:
             return
-
         vtk_polyDatas = vtkAppendPolyData()
         for (label, vtk_polyData) in vtk_blocks:
             vtk_polyDatas.AddInputData(vtk_polyData)
@@ -463,8 +468,9 @@ class NCubeGeometryOnTopographySource(VTKPythonAlgorithmBase):
             self.Modified()
 
 
-
-
+#------------------------------------------------------------------------------
+# N-Cube Shapefile On Topography Block Source
+#------------------------------------------------------------------------------
 
 @smproxy.source(name="NCubeGeometryOnTopographyBlockSource",
        label="N-Cube Shapefile On Topography Block Source")
@@ -482,10 +488,12 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
     def RequestData(self, request, inInfo, outInfo):
         from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+        import time
 
         if self._shapename is None:
             return 1
 
+        t0 = time.time()
         vtk_blocks = _NCubeGeometryOnTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
         if vtk_blocks == []:
             return
@@ -498,8 +506,10 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
             mb.SetBlock( rowidx, polyData )
             mb.GetMetaData( rowidx ).Set( vtkCompositeDataSet.NAME(), label)
             rowidx += 1
-        return 1
+        t1 = time.time()
+        print ("t1-t0", t1-t0)
 
+        return 1
 
     @smproperty.stringvector(name="Shapefile Name")
     @smdomain.filelist()
@@ -555,8 +565,9 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
 
-
-
+#------------------------------------------------------------------------------
+# N-Cube Topography Block Source
+#------------------------------------------------------------------------------
 
 @smproxy.source(name="NCubeTopographyBlockSource",
        label="N-Cube Topography Block Source")
@@ -596,7 +607,6 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
         print ("t1-t0", t1-t0)
 
         return 1
-
 
     @smproperty.stringvector(name="Shapefile Name (optional)")
     @smdomain.filelist()
@@ -648,6 +658,68 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
         self._shapecol = label
         print("SetShapeLabel ", label)
         self.Modified()
+
+#------------------------------------------------------------------------------
+# N-Cube Topography Source
+#------------------------------------------------------------------------------
+
+@smproxy.source(name="NCubeTopographySource",
+       label="N-Cube Topography Source")
+class NCubeTopographySource(VTKPythonAlgorithmBase):
+    def __init__(self):
+        VTKPythonAlgorithmBase.__init__(self,
+                nInputPorts=0,
+                nOutputPorts=1,
+                outputType='vtkPolyData')
+        self._shapename = None
+        self._shapeencoding = None
+        self._shapecol = None
+        self._toponame = None
+
+
+    def RequestData(self, request, inInfo, outInfo):
+        from vtk import vtkPolyData, vtkAppendPolyData
+        import time
+
+        if self._toponame is None:
+            return
+
+        t0 = time.time()
+        vtk_blocks = _NCubeTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
+        if vtk_blocks == []:
+            return
+        vtk_polyDatas = vtkAppendPolyData()
+        for (label, vtk_polyData) in vtk_blocks:
+            vtk_polyDatas.AddInputData(vtk_polyData)
+        vtk_polyDatas.Update()
+        vtkPolyData.GetData(outInfo, 0).ShallowCopy(vtk_polyDatas.GetOutput())
+        t1 = time.time()
+        print ("t1-t0", t1-t0)
+
+        return 1
+
+    @smproperty.stringvector(name="Shapefile Name (optional)")
+    @smdomain.filelist()
+    @smhint.filechooser(extensions=["shp", "geojson"], file_description="ESRI Shapefile, GeoJSON")
+    def SetShapeFileName(self, name):
+        """Specify filename for the shapefile to read."""
+        print ("SetShapeFileName", name)
+        name = name if name != 'None' else None
+        if self._shapename != name:
+            self._shapename = name
+            self._shapecol = None
+            self.Modified()
+
+    @smproperty.stringvector(name="Topography File Name")
+    @smdomain.filelist()
+    @smhint.filechooser(extensions=["tif", "TIF", "nc"], file_description="GeoTIFF, NetCDF")
+    def SetTopographyFileName(self, name):
+        """Specify filename for the topography file to read."""
+        print ("SetTopographyFileName", name)
+        name = name if name != 'None' else None
+        if self._toponame != name:
+            self._toponame = name
+            self.Modified()
 
 
 # TODO
