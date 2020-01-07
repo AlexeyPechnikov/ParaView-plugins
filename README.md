@@ -4,6 +4,8 @@
 
 [N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data sources to load well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
+This plugin is not well-optimized yet because we still work on the functionality.
+
 ## How to Use
 
 Recent ParaView release 5.7 for MacOS integrated with Python 2.7 and so we need to use Python 2.7 installation and modules on MacOS. On Windows and Linux operation systems we can select between Python 2.7 and 3.7. Anyway, use the same Python as your ParaView build requires.
@@ -19,11 +21,11 @@ Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) p
 
 ### N-Cube ParaView Plugin Sources:
 
-**N-Cube Shapefile On Topography Source** - data source for 2D/3D Shapefile or GeoJSON. Z coordinates are zeroes for 2D geometry. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
+**N-Cube Shapefile On Topography Block Source** - data source for 2D/3D Shapefile or GeoJSON. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers. All shapefile fields presented in the ouput.
 
-**N-Cube Shapefile On Topography Block Source** - the same as **N-Cube Shapefile On Topography Source** and optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers.
+**N-Cube Topography Block Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. Only "Group by Field" parameter presented in the ouput.
 
-This data source will be ready soon: **N-Cube Topography Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. 
+Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
 
 ## Project Goals
 
@@ -32,8 +34,6 @@ For our 3D geological modeling we need a good 3D visualization and data processi
 See also our code snippets repository [ParaView Programmable Source and Programmable Filter examples](https://github.com/mobigroup/gis-snippets/tree/master/ParaView) and [A brief explanation of the 3D Density-Depth model construction](https://www.linkedin.com/pulse/brief-explanation-3d-density-depth-model-construction-pechnikov/).
 
 ## Screenshots
-
-![NCubeShapefileOnTopographySource](screenshots/NCubeShapefileOnTopographySource1.jpg)
 
 ![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource1.jpg)
 
