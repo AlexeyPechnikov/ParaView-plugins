@@ -300,7 +300,9 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
         (xmin,ymin,xmax,ymax) = geometry.bounds
         mask = [Point(x,y).intersects(geometry) if m and (x>=xmin and x<=xmax and y>=ymin and y<=ymax) else False for (x,y,m) in zip(xx.ravel('F'), yy.ravel('F'), mask.flatten())]
         mask = np.array(mask).reshape(len(ys),len(xs))
-    #print (_dem.shape,mask.shape)
+    # nothing to do: actually we need 4+ points to build 1 cell
+    if mask.sum() == 0:
+        return
 
     # Define points and triangles for mesh
     vtk_points = vtkPoints()
@@ -340,6 +342,10 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
             vtk_cells.InsertNextCell(triangle)
 
             count += 6
+
+    # nothing to do
+    if count == 0:
+        return
 
     # Create a polydata object
     trianglePolyData = vtkPolyData()
@@ -404,9 +410,11 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
         #print ("group",group)
         # Python 2 string issue wrapped
         if hasattr(group, 'encode'):
-            _df = df[df.index.str.match(group)].reset_index()[[shapecol,'geometry']]
+            _df = df[df.index.str.match(group)].reset_index()
         else:
-            _df = df[df.index == group].reset_index()[[shapecol,'geometry']]
+            _df = df[df.index == group].reset_index()
+        if shapecol is not None:
+            _df = _df[[shapecol,'geometry']]
         vtk_appendPolyData = vtkAppendPolyData()
         # iterate rows
         for rowidx,row in _df.iterrows():
@@ -416,11 +424,12 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
             vtk_polyData = _NCubeTopographyToPolyData(dem, row.geometry)
             if vtk_polyData is None:
                 continue
-            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row)
-            for (vtk_arr, val) in vtk_arrays:
-                for _ in range(vtk_polyData.GetNumberOfCells()):
-                    vtk_arr.InsertNextValue(val)
-                vtk_polyData.GetCellData().AddArray(vtk_arr)
+            if shapecol is not None:
+                vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row)
+                for (vtk_arr, val) in vtk_arrays:
+                    for _ in range(vtk_polyData.GetNumberOfCells()):
+                        vtk_arr.InsertNextValue(val)
+                    vtk_polyData.GetCellData().AddArray(vtk_arr)
             # compose vtkPolyData
             vtk_appendPolyData.AddInputData(vtk_polyData)
         # nothing to process
