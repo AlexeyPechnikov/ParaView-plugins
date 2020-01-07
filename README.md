@@ -1,8 +1,8 @@
-# ParaView-plugins
+# N-Cube ParaView plugin for 3D/4D GIS Data Visualization
 
 ## About the project
 
-[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is a set of ParaView data sources to load well-known QGIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data sources to load well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
 ## How to Use
 
@@ -16,6 +16,14 @@ pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
 ```
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
+
+### N-Cube ParaView Plugin Sources:
+
+**N-Cube Shapefile On Topography Source** - data source for 2D/3D Shapefile or GeoJSON. Z coordinates are zeroes for 2D geometry. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
+
+**N-Cube Shapefile On Topography Block Source** - the same as **N-Cube Shapefile On Topography Source** and optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers.
+
+This data source will be ready soon: **N-Cube Topography Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. 
 
 ## Project Goals
 
