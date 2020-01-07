@@ -35,6 +35,8 @@ See also our code snippets repository [ParaView Programmable Source and Programm
 
 ## Screenshots
 
+![NCubeTopographyBlockSource](screenshots/NCubeTopographyBlockSource.jpg)
+
 ![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource1.jpg)
 
 ![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource2.jpg)
