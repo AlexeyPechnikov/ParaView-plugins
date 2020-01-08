@@ -21,7 +21,6 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
         return
     df = gpd.read_file(shapename, encoding=shapeencoding)
     # clean undefined geometries
-    df = df[df.geometry.notnull()]
     if (len(df)) == 0:
         return []
     # pre-generate sindex on df1 if it doesn't already exist
@@ -49,73 +48,38 @@ def _NCubeRasterLoad(rastername):
 
     return raster
 
-def _NCubeGeoDataFrameToRaster(df, dem):
-    import geopandas as gpd
-    from shapely.geometry import Polygon
+def _NCubeGeoDataFrameToRaster(df, extent, dem_crs):
+    #from shapely.geometry import Polygon
+    from functools import partial
+    import pyproj
+    from shapely.ops import transform
 
-    if df is None or dem is None:
-        return (df, dem)
+    if df is None:
+        return
 
-    # extract EPSG code for raster
-    dem_epsg = None
-    if 'crs' in dem.attrs.keys():
-        dem_epsg = int(dem.crs.split(':')[1])
-
-    # extract EPSG code for geometry
-    df_epsg = None
-    if df.crs != {}:
-        df_epsg = int(df.crs['init'].split(':')[1])
-    #print ("epsg", dem_epsg, df_epsg)
-
-    # crop geometries by the topography extent
-    (xmin,xmax,ymin,ymax) = (dem.x.min(),dem.x.max(),dem.y.min(),dem.y.max())
-    extent = Polygon([(xmin,ymin),(xmax,ymin),(xmax,ymax),(xmin,ymax)])
-    #print ("extent", extent)
-    df_extent = gpd.GeoDataFrame([],
-                                 crs={'init' :'epsg:'+str(dem_epsg)} if dem_epsg is not None else {},
-                                 geometry=[extent])
-    #print (df_extent)
     # reproject when the both coordinate systems are defined and these are different
-    if df_epsg and dem_epsg:
-        df_extent_reproj = df_extent.to_crs(epsg=df_epsg).copy()
-        #print ("df_extent valid",df_extent_reproj.geometry[0].is_valid)
-
+    df_crs = str(df.crs['init']) if df.crs != {} else None
+    if df_crs and dem_crs:
+        print ("df_crs",df_crs,"dem_crs",dem_crs)
+        # for Python2
+        project = partial(
+            pyproj.transform,
+            pyproj.Proj(init=df_crs), # source coordinate system
+            pyproj.Proj(init=dem_crs) # destination coordinate system
+        )
+        extent_reproj = transform(project, extent)
         # if original or reprojected raster extent is valid, use it to crop geometry
-        if df_extent_reproj.geometry[0].is_valid:
+        if extent_reproj.is_valid:
             # geometry intersection to raster extent in geometry coordinate system
-            df = df[df.geometry.intersects(df_extent_reproj.geometry[0])]
-            df['geometry'] = df.geometry.intersection(df_extent_reproj.geometry[0])
+            df = df[df.geometry.intersects(extent_reproj)]
+            df['geometry'] = df.geometry.intersection(extent_reproj)
 
-    #print ("df", list(df.index))
-
-    # reproject [cropped] geometry to original raster coordinates if needed
-    if df_epsg and dem_epsg:
-        df = df.to_crs(epsg=dem_epsg)
+        # reproject [cropped] geometry to original raster coordinates if needed
+        df['geometry'] = [transform(project, geom) if geom.is_valid else None for geom in df['geometry']]
         # fix for broken [reprojected] geometries
         df = df[df.geometry.is_valid==True].copy()
 
-    # crop raster by geometry extent
-    (xmin,ymin,xmax,ymax) = df.geometry.total_bounds
-    #print ("xmin,ymin,xmax,ymax",xmin,ymin,xmax,ymax)
-    # for single point the extent is single point which produces empty raster
-    if len(dem.x) > 1:
-        xres = dem.x[1] - dem.x[0]
-    else:
-        xres = 1
-    if len(dem.y) > 1:
-        yres = dem.y[1] - dem.y[0]
-    else:
-        yres = 1
-    dem = dem.sel(
-            x=slice(xmin-xres if xres>0 else xmax-xres, xmax+xres if xres>0 else xmin+xres),
-            y=slice(ymin-yres if yres>0 else ymax-yres, ymax+yres if yres>0 else ymin+yres)
-        )
-    #print ("x slice ", float(xmin-xres if xres>0 else xmax-xres), float(xmax+xres if xres>0 else xmin+xres))
-    #print ("y slice ", float(ymin-yres if yres>0 else ymax-yres), float(ymax+yres if yres>0 else ymin+yres))
-    #print ("dem", dem)
-
-    # renumerate geometries
-    return (df, dem)
+    return df
 
 
 # list of list of VtkArray's
@@ -219,6 +183,7 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
 def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
     from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+    from shapely.geometry import box
     import numpy as np
 
     #print ("_NCUBEGeometryOnTopography start")
@@ -237,9 +202,11 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         dem = _NCubeRasterLoad(toponame)
         if dem is None:
             return
+    dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
+    dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
 
     # crop geometry and topography together
-    (df, dem) = _NCubeGeoDataFrameToRaster(df, dem)
+    df = _NCubeGeoDataFrameToRaster(df, dem_extent, dem_crs)
 
     groups = df.index.unique()
     #print ("groups",groups)
@@ -373,6 +340,7 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
 def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+    from shapely.geometry import box
     import numpy as np
 
     print ("_NCubeTopography start")
@@ -391,6 +359,8 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     dem = _NCubeRasterLoad(toponame)
     if dem is None:
         return
+    dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+    dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
 
     # process the full topography raster
     if df is None:
@@ -398,7 +368,7 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
         return [(_str('None'),vtk_polyData)]
 
     # crop geometry and topography together
-    (df, dem) = _NCubeGeoDataFrameToRaster(df, dem)
+    df = _NCubeGeoDataFrameToRaster(df, dem_extent, dem_crs)
     #print ("df", list(df.index))
 
     groups = df.index.unique()
