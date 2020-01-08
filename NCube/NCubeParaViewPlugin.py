@@ -249,7 +249,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
 # TODO
 # df.loc[0,'geometry']
 def _NCubeTopographyToPolyData(dem, geometry=None):
-    from vtk import vtkPolyData, vtkAppendPolyData, vtkCleanPolyData, vtkPoints, vtkCellArray, vtkTriangle, vtkFloatArray
+    from vtk import vtkPolyData, vtkAppendPolyData, vtkCleanPolyData, vtkPoints, vtkCellArray, vtkTriangle, vtkQuad, vtkFloatArray
     from shapely.geometry import Point
     import numpy as np
 
@@ -284,31 +284,20 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
             if not mask[j,i] or not mask[j+1,i] or not mask[j,i+1] or not mask[j+1,i+1]:
                 continue
 
-            # Triangle 1
             vtk_points.InsertNextPoint(xs[i],   ys[j],   values[j,i])
-            vtk_points.InsertNextPoint(xs[i],   ys[j+1], values[j+1,i])
-            vtk_points.InsertNextPoint(xs[i+1], ys[j],   values[j,i+1])
-
-            triangle = vtkTriangle()
-            triangle.GetPointIds().SetId(0, count)
-            triangle.GetPointIds().SetId(1, count + 1)
-            triangle.GetPointIds().SetId(2, count + 2)
-
-            vtk_cells.InsertNextCell(triangle)
-
-            # Triangle 2
             vtk_points.InsertNextPoint(xs[i],   ys[j+1], values[j+1,i])
             vtk_points.InsertNextPoint(xs[i+1], ys[j+1], values[j+1,i+1])
             vtk_points.InsertNextPoint(xs[i+1], ys[j],   values[j,i+1])
 
-            triangle = vtkTriangle()
-            triangle.GetPointIds().SetId(0, count + 3)
-            triangle.GetPointIds().SetId(1, count + 4)
-            triangle.GetPointIds().SetId(2, count + 5)
+            quad = vtkQuad()
+            quad.GetPointIds().SetId(0, count)
+            quad.GetPointIds().SetId(1, count + 1)
+            quad.GetPointIds().SetId(2, count + 2)
+            quad.GetPointIds().SetId(3, count + 3)
 
-            vtk_cells.InsertNextCell(triangle)
+            vtk_cells.InsertNextCell(quad)
 
-            count += 6
+            count += 4
 
     # nothing to do
     if count == 0:
