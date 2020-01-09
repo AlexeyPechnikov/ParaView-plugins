@@ -15,47 +15,20 @@ def _str(text):
     return str(text)
 
 # Load shapefile or geojson
-def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
+def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=None, dem_crs=None):
     import geopandas as gpd
-    if shapename is None:
-        return
-    df = gpd.read_file(shapename, encoding=shapeencoding)
-    # clean undefined geometries
-    if (len(df)) == 0:
-        return []
-    # pre-generate sindex on df1 if it doesn't already exist
-    df.sindex
-    if shapecol is not None:
-        return df.sort_values(shapecol).set_index(shapecol)
-    #print ("shapecol",shapecol)
-    return df
-
-# load DEM
-def _NCubeRasterLoad(rastername):
-    import xarray as xr
-    import numpy as np
-    if rastername is None:
-        return
-    raster = xr.open_rasterio(rastername).squeeze()
-    raster.values[raster.values == raster.nodatavals[0]] = np.nan
-    #raster.values[raster.values == raster.nodatavals[0]] = 0
-
-    # NaN border to easy lookup
-    raster.values[0,:]  = np.nan
-    raster.values[-1,:] = np.nan
-    raster.values[:,0]  = np.nan
-    raster.values[:,-1] = np.nan
-
-    return raster
-
-def _NCubeGeoDataFrameToRaster(df, extent, dem_crs):
-    #from shapely.geometry import Polygon
     from functools import partial
     import pyproj
     from shapely.ops import transform
 
-    if df is None:
+    df = gpd.read_file(shapename, encoding=shapeencoding)
+    if (len(df)) == 0:
         return
+    # pre-generate sindex on df1 if it doesn't already exist
+    df.sindex
+    if shapecol is not None:
+        df = df.sort_values(shapecol).set_index(shapecol)
+    #print ("shapecol",shapecol)
 
     # reproject when the both coordinate systems are defined and these are different
     df_crs = str(df.crs['init']) if df.crs != {} else None
@@ -81,6 +54,24 @@ def _NCubeGeoDataFrameToRaster(df, extent, dem_crs):
 
     return df
 
+
+# load DEM
+def _NCubeRasterLoad(rastername):
+    import xarray as xr
+    import numpy as np
+    if rastername is None:
+        return
+    raster = xr.open_rasterio(rastername).squeeze()
+    raster.values[raster.values == raster.nodatavals[0]] = np.nan
+    #raster.values[raster.values == raster.nodatavals[0]] = 0
+
+    # NaN border to easy lookup
+    raster.values[0,:]  = np.nan
+    raster.values[-1,:] = np.nan
+    raster.values[:,0]  = np.nan
+    raster.values[:,-1] = np.nan
+
+    return raster
 
 # list of list of VtkArray's
 def _NCubeGeoDataFrameRowToVTKArrays(row):
@@ -192,10 +183,6 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
     if shapename is None:
         return
 
-    df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding)
-    if df is None or len(df) == 0:
-        return
-
     # load DEM
     dem = None
     if toponame is not None:
@@ -205,8 +192,9 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
     dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
     dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
 
-    # crop geometry and topography together
-    df = _NCubeGeoDataFrameToRaster(df, dem_extent, dem_crs)
+    df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding, dem_extent, dem_crs)
+    if df is None:
+        return
 
     groups = df.index.unique()
     #print ("groups",groups)
@@ -338,12 +326,6 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     if toponame is None:
         return
 
-    df = None
-    if shapename is not None:
-        df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding)
-        if df is None or len(df) == 0:
-            return
-
     # load DEM
     dem = _NCubeRasterLoad(toponame)
     if dem is None:
@@ -351,14 +333,16 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
     dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
 
+    df = None
+    if shapename is not None:
+        df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding, dem_extent, dem_crs)
+        if df is None:
+            return
+
     # process the full topography raster
     if df is None:
         vtk_polyData = _NCubeTopographyToPolyData(dem, geometry=None)
         return [(_str('None'),vtk_polyData)]
-
-    # crop geometry and topography together
-    df = _NCubeGeoDataFrameToRaster(df, dem_extent, dem_crs)
-    #print ("df", list(df.index))
 
     groups = df.index.unique()
     #print ("groups",groups)
