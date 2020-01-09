@@ -24,8 +24,6 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
     df = gpd.read_file(shapename, encoding=shapeencoding)
     if (len(df)) == 0:
         return
-    # pre-generate sindex on df1 if it doesn't already exist
-    df.sindex
     if shapecol is not None:
         df = df.sort_values(shapecol).set_index(shapecol)
     #print ("shapecol",shapecol)
@@ -49,8 +47,6 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
 
         # reproject [cropped] geometry to original raster coordinates if needed
         df['geometry'] = [transform(project, geom) if geom.is_valid else None for geom in df['geometry']]
-        # fix for broken [reprojected] geometries
-        df = df[df.geometry.is_valid==True].copy()
 
     return df
 
@@ -236,10 +232,14 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
 
 # TODO
 # df.loc[0,'geometry']
-def _NCubeTopographyToPolyData(dem, geometry=None):
-    from vtk import vtkPolyData, vtkAppendPolyData, vtkCleanPolyData, vtkPoints, vtkCellArray, vtkTriangle, vtkQuad, vtkFloatArray
+def _NCubeTopographyToGrid(dem, geometry=None):
+    from vtk import vtkPoints, vtkFloatArray, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT
+    from vtk.numpy_interface import algorithms as algs
+    from vtk.numpy_interface import dataset_adapter as dsa
+    from vtk.util import numpy_support as vn
     from shapely.geometry import Point
     import numpy as np
+
 
     xs = dem.x.values
     ys = dem.y.values
@@ -250,72 +250,76 @@ def _NCubeTopographyToPolyData(dem, geometry=None):
 
     # create raster mask by geometry and for NaNs
     (yy,xx) = np.meshgrid(ys, xs)
-    mask = ~np.isnan(values)
-    if geometry is not None:
-        (xmin,ymin,xmax,ymax) = geometry.bounds
-        mask = [Point(x,y).intersects(geometry) if m and (x>=xmin and x<=xmax and y>=ymin and y<=ymax) else False for (x,y,m) in zip(xx.ravel('F'), yy.ravel('F'), mask.flatten())]
-        mask = np.array(mask).reshape(len(ys),len(xs))
-    # nothing to do: actually we need 4+ points to build 1 cell
-    if mask.sum() == 0:
-        return
+#    mask = ~np.isnan(values)
+#    if geometry is not None:
+#        (xmin,ymin,xmax,ymax) = geometry.bounds
+#        mask = [Point(x,y).intersects(geometry) if m and (x>=xmin and x<=xmax and y>=ymin and y<=ymax) else False for (x,y,m) in zip(xx.ravel('F'), yy.ravel('F'), mask.flatten())]
+#        mask = np.array(mask).reshape(len(ys),len(xs))
+#    # nothing to do: actually we need 4+ points to build 1 cell
+#    if mask.sum() == 0:
+#        return
+#    print ("mask", mask.shape, len(xs), len(ys))
 
-    # Define points and triangles for mesh
     vtk_points = vtkPoints()
-    vtk_cells = vtkCellArray()
+    points = np.column_stack((xx.ravel('F'),yy.ravel('F'),values.ravel('C')))
+    _points = vn.numpy_to_vtk(points, deep=True)
+    vtk_points.SetData(_points)
+#    for (_x,_y,_z,_m) in zip(xx.ravel('F'),yy.ravel('F'),values.ravel('C'),mask.ravel('C')):
+#        vtk_points.InsertNextPoint(_x,_y, _z if _m else np.nan)
 
-    # Build the meshgrid manually
-    count = 0
-    # iterate array
-    for j in range(0,len(ys)-2):
-        for i in range(0,len(xs)-2):
-            # check area
-            if not mask[j,i] or not mask[j+1,i] or not mask[j,i+1] or not mask[j+1,i+1]:
-                continue
+    sgrid = vtkStructuredGrid()
+    sgrid.SetDimensions(len(xs), len(ys), 1)
+    sgrid.SetPoints(vtk_points)
 
-            vtk_points.InsertNextPoint(xs[i],   ys[j],   values[j,i])
-            vtk_points.InsertNextPoint(xs[i],   ys[j+1], values[j+1,i])
-            vtk_points.InsertNextPoint(xs[i+1], ys[j+1], values[j+1,i+1])
-            vtk_points.InsertNextPoint(xs[i+1], ys[j],   values[j,i+1])
-
-            quad = vtkQuad()
-            quad.GetPointIds().SetId(0, count)
-            quad.GetPointIds().SetId(1, count + 1)
-            quad.GetPointIds().SetId(2, count + 2)
-            quad.GetPointIds().SetId(3, count + 3)
-
-            vtk_cells.InsertNextCell(quad)
-
-            count += 4
-
-    # nothing to do
-    if count == 0:
-        return
-
-    # Create a polydata object
-    trianglePolyData = vtkPolyData()
-
-    # Add the geometry and topology to the polydata
-    trianglePolyData.SetPoints(vtk_points)
-    #trianglePolyData.GetPointData().SetScalars(colors)
-    trianglePolyData.SetPolys(vtk_cells)
-
-    # Clean the polydata so that the edges are shared
-    cleanPolyData = vtkCleanPolyData()
-    cleanPolyData.SetInputData(trianglePolyData)
-    cleanPolyData.Update()
-
-    output = cleanPolyData.GetOutput()
-    array = vtkFloatArray()
+    array = vn.numpy_to_vtk(values.ravel(), deep=True, array_type=VTK_FLOAT)
     array.SetName("z")
-    for i in range(0, output.GetNumberOfPoints()):
-        array.InsertNextValue(output.GetPoint(i)[2])
-    output.GetPointData().SetScalars(array)
+    sgrid.GetPointData().AddArray(array)
+
+    thresh = vtkThreshold()
+    thresh.SetInputData(sgrid)
+    thresh.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "z")
+    thresh.ThresholdBetween(-1000000, 1000000)
+    thresh.Update()
+
+#    return sgrid
+    return thresh.GetOutput()
+
+# types = ['Polygon', 'MultiPolygon']
+# Cleanup input list of geometries and split multi-geometries to single geometries
+def _NCubeTopographyCheckGeometries(geometries, types):
+    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+
+    # output geometries list
+    output = []
+
+    # iterate input geometries
+    for geometry in geometries:
+        if geometry is None:
+            continue
+
+        # iterate nulti-geometries when needed
+        if isinstance(geometry, (BaseMultipartGeometry)):
+            _geometries = geometry.geoms
+        if isinstance(geometry, (BaseGeometry)):
+            _geometries = [geometry]
+        else:
+            print ("Unknown geometry type", geometry.geometryType())
+            conntinue
+
+        for _geometry in _geometries:
+            if not _geometry.is_valid:
+                continue
+            if _geometry.is_empty:
+                continue
+            if types is not None and not _geometry.geometryType() in types:
+                continue
+            output.append(_geometry)
 
     return output
 
-
 def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
-    from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+    from vtk import vtkAppendFilter
+    #vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
     from shapely.geometry import box
     import numpy as np
@@ -341,46 +345,37 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
 
     # process the full topography raster
     if df is None:
-        vtk_polyData = _NCubeTopographyToPolyData(dem, geometry=None)
-        return [(_str('None'),vtk_polyData)]
+        vtk_ugrid = _NCubeTopographyToGrid(dem, geometry=None)
+        print ("vtk_ugrid",vtk_ugrid)
+        return [(_str('None'),vtk_ugrid)]
 
     groups = df.index.unique()
     #print ("groups",groups)
 
-    # iterate blocks
     vtk_blocks = []
+    # iterate blocks
     for group in groups:
         #print ("group",group)
         # Python 2 string issue wrapped
         if hasattr(group, 'encode'):
-            _df = df[df.index.str.match(group)].reset_index()
+            geoms = df[df.index.str.match(group)].geometry
         else:
-            _df = df[df.index == group].reset_index()
-        if shapecol is not None:
-            _df = _df[[shapecol,'geometry']]
-        vtk_appendPolyData = vtkAppendPolyData()
-        # iterate rows
-        for rowidx,row in _df.iterrows():
-            # processing closed areas only
-            if not row.geometry.type in ['Polygon', 'MultiPolygon']:
-                continue
-            vtk_polyData = _NCubeTopographyToPolyData(dem, row.geometry)
-            if vtk_polyData is None:
-                continue
-            if shapecol is not None:
-                vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row)
-                for (vtk_arr, val) in vtk_arrays:
-                    for _ in range(vtk_polyData.GetNumberOfCells()):
-                        vtk_arr.InsertNextValue(val)
-                    vtk_polyData.GetCellData().AddArray(vtk_arr)
-            # compose vtkPolyData
-            vtk_appendPolyData.AddInputData(vtk_polyData)
-        # nothing to process
-        if vtk_appendPolyData.GetNumberOfInputConnections(0) == 0:
-            continue
-        vtk_appendPolyData.Update()
-        vtk_block = vtk_appendPolyData.GetOutput()
+            geoms = df[df.index == group].geometry
 
+        # processing closed areas only
+        geoms = _NCubeTopographyCheckGeometries(geoms, ['Polygon', 'MultiPolygon'])
+        vtk_append = vtkAppendFilter()
+        for geom in geoms:
+            vtk_ugrid = _NCubeTopographyToGrid(dem, geom)
+            if vtk_ugrid is None:
+                continue
+            # compose
+            vtk_append.AddInputData(vtk_ugrid)
+        # nothing to process
+        if vtk_append.GetNumberOfInputConnections(0) == 0:
+            continue
+        vtk_append.Update()
+        vtk_block = vtk_append.GetOutput()
         vtk_blocks.append((_str(group),vtk_block))
 
     print ("_NCubeTopography end")
@@ -504,7 +499,7 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
-        from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+        from vtk import vtkCompositeDataSet, vtkMultiBlockDataSet
         import time
 
         if self._toponame is None:
@@ -512,9 +507,9 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
 
         t0 = time.time()
         vtk_blocks = _NCubeTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
-        if vtk_blocks == []:
-            return
         print ("vtk_blocks", len(vtk_blocks))
+        if len(vtk_blocks) == 0:
+            return 1
         mb = vtkMultiBlockDataSet.GetData(outInfo, 0)
         mb.SetNumberOfBlocks(len(vtk_blocks))
         rowidx = 0
