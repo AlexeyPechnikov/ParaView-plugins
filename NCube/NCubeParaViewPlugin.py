@@ -232,14 +232,10 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
 
 # TODO
 # df.loc[0,'geometry']
-def _NCubeTopographyToGrid(dem, geometry=None):
-    from vtk import vtkPoints, vtkFloatArray, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT
-    from vtk.numpy_interface import algorithms as algs
-    from vtk.numpy_interface import dataset_adapter as dsa
+def _NCubeTopographyToGrid(dem):
+    from vtk import vtkPoints, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT
     from vtk.util import numpy_support as vn
-    from shapely.geometry import Point
     import numpy as np
-
 
     xs = dem.x.values
     ys = dem.y.values
@@ -250,16 +246,6 @@ def _NCubeTopographyToGrid(dem, geometry=None):
 
     # create raster mask by geometry and for NaNs
     (yy,xx) = np.meshgrid(ys, xs)
-#    mask = ~np.isnan(values)
-#    if geometry is not None:
-#        (xmin,ymin,xmax,ymax) = geometry.bounds
-#        mask = [Point(x,y).intersects(geometry) if m and (x>=xmin and x<=xmax and y>=ymin and y<=ymax) else False for (x,y,m) in zip(xx.ravel('F'), yy.ravel('F'), mask.flatten())]
-#        mask = np.array(mask).reshape(len(ys),len(xs))
-#    # nothing to do: actually we need 4+ points to build 1 cell
-#    if mask.sum() == 0:
-#        return
-#    print ("mask", mask.shape, len(xs), len(ys))
-
     vtk_points = vtkPoints()
     points = np.column_stack((xx.ravel('F'),yy.ravel('F'),values.ravel('C')))
     _points = vn.numpy_to_vtk(points, deep=True)
@@ -278,7 +264,7 @@ def _NCubeTopographyToGrid(dem, geometry=None):
     thresh = vtkThreshold()
     thresh.SetInputData(sgrid)
     thresh.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "z")
-    thresh.ThresholdBetween(-1000000, 1000000)
+    thresh.ThresholdBetween(-1e30, 1e30)
     thresh.Update()
 
 #    return sgrid
@@ -322,7 +308,10 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     #vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
     from shapely.geometry import box
+    import xarray as xr
     import numpy as np
+    import rasterio
+    import rasterio.mask
 
     print ("_NCubeTopography start")
 
@@ -330,24 +319,22 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     if toponame is None:
         return
 
-    # load DEM
-    dem = _NCubeRasterLoad(toponame)
-    if dem is None:
-        return
-    dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
-    dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
-
-    df = None
-    if shapename is not None:
-        df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding, dem_extent, dem_crs)
-        if df is None:
-            return
-
     # process the full topography raster
-    if df is None:
-        vtk_ugrid = _NCubeTopographyToGrid(dem, geometry=None)
+    if shapename is None:
+        dem = xr.open_rasterio(toponame).squeeze()
+        dem.values[dem.values == dem.nodatavals[0]] = np.nan
+        vtk_ugrid = _NCubeTopographyToGrid(dem)
         print ("vtk_ugrid",vtk_ugrid)
         return [(_str('None'),vtk_ugrid)]
+
+    # process shapefile
+    dem = rasterio.open(toponame)
+    print (dem.crs, dem.bounds)
+    dem_crs = dem.crs.to_string() if dem.crs is not None else None
+    dem_extent = box(dem.bounds.left,dem.bounds.bottom,dem.bounds.right,dem.bounds.top)
+    df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding, dem_extent, dem_crs)
+    if df is None:
+        return
 
     groups = df.index.unique()
     #print ("groups",groups)
@@ -366,7 +353,19 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
         geoms = _NCubeTopographyCheckGeometries(geoms, ['Polygon', 'MultiPolygon'])
         vtk_append = vtkAppendFilter()
         for geom in geoms:
-            vtk_ugrid = _NCubeTopographyToGrid(dem, geom)
+            # rasterize geomemetry
+            try:
+                out_image, out_transform = rasterio.mask.mask(dem, geom,crop=True, filled=True)
+            except:
+                # geometry outside of the raster, etc.
+                continue
+            image = out_image.squeeze()
+            print (image.shape)
+            (xs, _) = rasterio.transform.xy(out_transform, image.shape[1]*[0], range(image.shape[1]), offset='center')
+            (_, ys) = rasterio.transform.xy(out_transform, range(image.shape[0]), image.shape[0]*[0], offset='center')
+            da = xr.DataArray(image, coords={'x': xs, 'y': ys}, dims=('y', 'x'))
+            # process rasterized geometry
+            vtk_ugrid = _NCubeTopographyToGrid(da)
             if vtk_ugrid is None:
                 continue
             # compose
@@ -410,7 +409,7 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
         t0 = time.time()
         vtk_blocks = _NCubeGeometryOnTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
-        if vtk_blocks == []:
+        if vtk_blocks is None or vtk_blocks == []:
             return
         print ("vtk_blocks", len(vtk_blocks))
         mb = vtkMultiBlockDataSet.GetData(outInfo, 0)
@@ -507,9 +506,9 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
 
         t0 = time.time()
         vtk_blocks = _NCubeTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
-        print ("vtk_blocks", len(vtk_blocks))
-        if len(vtk_blocks) == 0:
+        if vtk_blocks is None or vtk_blocks == []:
             return 1
+        print ("vtk_blocks", len(vtk_blocks))
         mb = vtkMultiBlockDataSet.GetData(outInfo, 0)
         mb.SetNumberOfBlocks(len(vtk_blocks))
         rowidx = 0
