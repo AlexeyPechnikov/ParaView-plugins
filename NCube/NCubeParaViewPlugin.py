@@ -28,10 +28,12 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
         df = df.sort_values(shapecol).set_index(shapecol)
     #print ("shapecol",shapecol)
 
-    # reproject when the both coordinate systems are defined and these are different
+    # extract the geometry coordinate system
     df_crs = str(df.crs['init']) if df.crs != {} else None
+    print ("df_crs",df_crs,"dem_crs",dem_crs)
+
+    # reproject when the both coordinate systems are defined and these are different
     if df_crs and dem_crs:
-        print ("df_crs",df_crs,"dem_crs",dem_crs)
         df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[extent])
         extent_reproj = df_extent.to_crs({'init' : df_crs})['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
@@ -42,6 +44,10 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
 
         # reproject [cropped] geometry to original raster coordinates if needed
         return df.to_crs({'init' : dem_crs})
+
+    # let's assume the coordinate systems are the same
+    df = df[df.geometry.intersects(extent)]
+    df['geometry'] = df.geometry.intersection(extent)
 
     return df
 
