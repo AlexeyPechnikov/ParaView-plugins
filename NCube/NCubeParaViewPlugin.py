@@ -32,13 +32,8 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
     df_crs = str(df.crs['init']) if df.crs != {} else None
     if df_crs and dem_crs:
         print ("df_crs",df_crs,"dem_crs",dem_crs)
-        # for Python2
-        project = partial(
-            pyproj.transform,
-            pyproj.Proj(init=df_crs), # source coordinate system
-            pyproj.Proj(init=dem_crs) # destination coordinate system
-        )
-        extent_reproj = transform(project, extent)
+        df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[extent])
+        extent_reproj = df_extent.to_crs({'init' : df_crs})['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
         if extent_reproj.is_valid:
             # geometry intersection to raster extent in geometry coordinate system
@@ -46,28 +41,9 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
             df['geometry'] = df.geometry.intersection(extent_reproj)
 
         # reproject [cropped] geometry to original raster coordinates if needed
-        df['geometry'] = [transform(project, geom) if geom.is_valid else None for geom in df['geometry']]
+        return df.to_crs({'init' : dem_crs})
 
     return df
-
-
-# load DEM
-def _NCubeRasterLoad(rastername):
-    import xarray as xr
-    import numpy as np
-    if rastername is None:
-        return
-    raster = xr.open_rasterio(rastername).squeeze()
-    raster.values[raster.values == raster.nodatavals[0]] = np.nan
-    #raster.values[raster.values == raster.nodatavals[0]] = 0
-
-    # NaN border to easy lookup
-    raster.values[0,:]  = np.nan
-    raster.values[-1,:] = np.nan
-    raster.values[:,0]  = np.nan
-    raster.values[:,-1] = np.nan
-
-    return raster
 
 # list of list of VtkArray's
 def _NCubeGeoDataFrameRowToVTKArrays(items):
@@ -130,13 +106,11 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
             zs = np.array(coords.xy[2])
         else:
             zs = np.array([0]*len(xs))
-        # find nearest raster values for every geometry point
+        #print (xs)
+        # rasterize geometries as lines
         if dem is not None:
+#            print (dem)
             zs = dem.sel(x=xr.DataArray(xs), y=xr.DataArray(ys), method='nearest').values
-            # code below should be faster for large geometries
-#            yy = dem.y.sel(y=xr.DataArray(ys), method='nearest').values
-#            xx = dem.x.sel(x=xr.DataArray(xs), method='nearest').values
-#            zs = dem.sel(x=xr.DataArray(xx), y=xr.DataArray(yy)).values
         #print ("xs", xs)
         mask = np.where(~np.isnan(zs))[0]
         mask2 = np.where(np.diff(mask)!=1)[0]+1
@@ -171,6 +145,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
     from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
     from shapely.geometry import box
+    import xarray as xr
     import numpy as np
 
     #print ("_NCUBEGeometryOnTopography start")
@@ -180,13 +155,23 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         return
 
     # load DEM
-    dem = None
+    dem = dem_extent = dem_crs = None
     if toponame is not None:
-        dem = _NCubeRasterLoad(toponame)
-        if dem is None:
-            return
-    dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
-    dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+        #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
+        dem = xr.open_rasterio(toponame).squeeze()
+        # dask array can't be processed by this way
+        dem.values[dem.values == dem.nodatavals[0]] = np.nan
+
+        # NaN border to easy lookup
+        dem.values[0,:]  = np.nan
+        dem.values[-1,:] = np.nan
+        dem.values[:,0]  = np.nan
+        dem.values[:,-1] = np.nan
+
+        dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
+        dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+
+        #print (dem.values)
 
     df = _NCubeGeoDataFrameLoad(shapename, shapecol, shapeencoding, dem_extent, dem_crs)
     if df is None:
@@ -194,6 +179,9 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
 
     groups = df.index.unique()
     #print ("groups",groups)
+    
+    # TEST
+#    groups = groups[:1]
 
     # iterate blocks
     vtk_blocks = []
@@ -205,7 +193,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         else:
             _df = df[df.index == group].reset_index()
         vtk_appendPolyData = vtkAppendPolyData()
-        # iterate rows
+        # iterate rows with the same attributes and maybe multiple geometries
         for rowidx,row in _df.iterrows():
             vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
             if vtk_polyData is None:
@@ -416,7 +404,9 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         t0 = time.time()
         vtk_blocks = _NCubeGeometryOnTopography(self._shapename, self._toponame, self._shapecol, self._shapeencoding)
         if vtk_blocks is None or vtk_blocks == []:
-            return
+            t1 = time.time()
+            print ("t1-t0", t1-t0)
+            return 1
         print ("vtk_blocks", len(vtk_blocks))
         mb = vtkMultiBlockDataSet.GetData(outInfo, 0)
         mb.SetNumberOfBlocks(len(vtk_blocks))
