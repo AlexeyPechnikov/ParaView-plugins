@@ -70,13 +70,13 @@ def _NCubeRasterLoad(rastername):
     return raster
 
 # list of list of VtkArray's
-def _NCubeGeoDataFrameRowToVTKArrays(row):
+def _NCubeGeoDataFrameRowToVTKArrays(items):
     #vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, 
     from vtk import vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 
     vtk_row = []
-    for (key,value) in row.to_dict().items():
+    for (key,value) in items.items():
         #print (key,value)
         # define attribute as array
         if isinstance(value, (BaseMultipartGeometry)):
@@ -210,7 +210,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
             vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
             if vtk_polyData is None:
                 continue
-            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row)
+            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row.to_dict())
             for (vtk_arr, val) in vtk_arrays:
                 for _ in range(vtk_polyData.GetNumberOfCells()):
                     vtk_arr.InsertNextValue(val)
@@ -368,6 +368,12 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
             vtk_ugrid = _NCubeTopographyToGrid(da)
             if vtk_ugrid is None:
                 continue
+            if shapecol:
+                vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays({shapecol:group})
+                for (vtk_arr, val) in vtk_arrays:
+                    for _ in range(vtk_ugrid.GetNumberOfCells()):
+                        vtk_arr.InsertNextValue(val)
+                    vtk_ugrid.GetCellData().AddArray(vtk_arr)
             # compose
             vtk_append.AddInputData(vtk_ugrid)
         # nothing to process
