@@ -84,22 +84,17 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
     return vtk_row
 
 
-def _NCubeGeometryToPolyData(geometry, dem=None):
+def _NCubeGeometryToPolyData(geometries, dem=None):
     from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
     import xarray as xr
     import numpy as np
 
-    if isinstance(geometry, (BaseMultipartGeometry)):
-    #if row.geometry.geometryType()[:5] == 'Multi':
-        geoms = geometry.geoms
-    else:
-        geoms = [geometry]
 
     vtk_points = vtkPoints()
     vtk_cells = vtkCellArray()
     # iterate parts of (multi)geometry
-    for geom in geoms:
+    for geom in geometries:
+        #print (geom)
         if geom.type == 'Polygon':
             # use exterior coordinates only
             coords = geom.exterior.coords
@@ -201,7 +196,8 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         vtk_appendPolyData = vtkAppendPolyData()
         # iterate rows with the same attributes and maybe multiple geometries
         for rowidx,row in _df.iterrows():
-            vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
+            geoms = _NCubeTopographyCheckGeometries([row.geometry])
+            vtk_polyData = _NCubeGeometryToPolyData(geoms, dem)
             if vtk_polyData is None:
                 continue
             vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row.to_dict())
@@ -266,7 +262,7 @@ def _NCubeTopographyToGrid(dem):
 
 # types = ['Polygon', 'MultiPolygon']
 # Cleanup input list of geometries and split multi-geometries to single geometries
-def _NCubeTopographyCheckGeometries(geometries, types):
+def _NCubeTopographyCheckGeometries(geometries, types=None):
     from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
 
     # output geometries list
@@ -279,8 +275,10 @@ def _NCubeTopographyCheckGeometries(geometries, types):
 
         # iterate nulti-geometries when needed
         if isinstance(geometry, (BaseMultipartGeometry)):
+            #print ("BaseMultipartGeometry")
             _geometries = geometry.geoms
-        if isinstance(geometry, (BaseGeometry)):
+        elif isinstance(geometry, (BaseGeometry)):
+            #print ("BaseGeometry")
             _geometries = [geometry]
         else:
             print ("Unknown geometry type", geometry.geometryType())
