@@ -14,10 +14,14 @@ Follow instructions to install Python 2.7 and configure PYTHONPATH environment v
 
 Install required Python 2.7 modules:
 ```
-pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
+pip2.7 install numpy xarray pandas geopandas shapely vtk pyproj rasterio
 ```
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
+
+### N-Cube ParaView Plugin Writers:
+
+**ESRI Shapefile** - Use ParaView menu Save -> Save Data -> ESRI Shapefile(\*.shp) to save geometry as ESRI Shapefile (Point). By performance reasons in case when the geometry includes more than 1M points only bounding box will be saved.
 
 ### N-Cube ParaView Plugin Sources:
 
