@@ -45,8 +45,9 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
         return df.to_crs({'init' : dem_crs})
 
     # let's assume the coordinate systems are the same
-    df = df[df.geometry.intersects(extent)]
-    df['geometry'] = df.geometry.intersection(extent)
+    if extent is not None:
+        df = df[df.geometry.intersects(extent)]
+        df['geometry'] = df.geometry.intersection(extent)
 
     return df
 
