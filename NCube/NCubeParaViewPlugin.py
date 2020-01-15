@@ -18,7 +18,6 @@ def _str(text):
 def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=None, dem_crs=None):
     import geopandas as gpd
     from functools import partial
-    import pyproj
     from shapely.ops import transform
 
     df = gpd.read_file(shapename, encoding=shapeencoding)
@@ -646,3 +645,90 @@ class NCubeShapefileWriter(VTKPythonAlgorithmBase):
 #@smproxy.source(name="NCUBEImageOnTopographySource",
 #       label="N-Cube Image On Topography Source")
 
+def _NcubeDataFrameToVTKTable(df, string_length_limit=None):
+    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+
+    vtk_table = vtkTable()
+    # Create columns
+    for colname in df.columns:
+        dtype = df[colname].dtype
+        print (colname, dtype)
+        if dtype in ['O','str','datetime64']:
+            vtk_arr = vtkStringArray()
+        elif dtype in ['int64']:
+            vtk_arr = vtkIntArray()
+        elif dtype in ['float64']:
+            vtk_arr = vtkFloatArray()
+        elif dtype in ['bool']:
+            vtk_arr = vtkBitArray()
+        else:
+            print ('Unknown Pandas column type', dtype)
+            vtk_arr = vtkStringArray()
+        vtk_arr.SetName(colname)
+        for val in df[colname]:
+            # some different datatypes could be saved as strings
+            if isinstance(vtk_arr, vtkStringArray):
+                val = str(val)
+                # crop too long strings
+                if string_length_limit is not None and len(val) > string_length_limit:
+                    val = val[:string_length_limit] + ' ...'
+            vtk_arr.InsertNextValue(val)
+        vtk_table.AddColumn(vtk_arr)
+
+    return vtk_table
+
+# To add a reader, we can use the following decorators
+#   @smproxy.source(name="PythonCSVReader", label="Python-based CSV Reader")
+#   @smhint.xml("""<ReaderFactory extensions="csv" file_description="Numpy CSV files" />""")
+# or directly use the "@reader" decorator.
+@smproxy.reader(name="NCubeLASReader", label="N-Cube LAS Well Log Reader",
+                extensions="las", file_description="LAS files")
+@smproperty.xml("""<OutputPort name="Header"     index="0" />""")
+@smproperty.xml("""<OutputPort name="Curves"     index="1" />""")
+class NCubeLASReader(VTKPythonAlgorithmBase):
+    """A reader that reads a LAS Well Log file"""
+    def __init__(self):
+        VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=2, outputType='vtkTable')
+        self._filename = None
+
+    @smproperty.stringvector(name="FileName")
+    @smdomain.filelist()
+    @smhint.filechooser(extensions="las", file_description="LAS Well Log files")
+    def SetFileName(self, name):
+        """Specify filename for the file to read."""
+        if self._filename != name:
+            self._filename = name
+            self.Modified()
+
+    def RequestInformation(self, request, inInfoVec, outInfoVec):
+        executive = self.GetExecutive()
+        outInfo = outInfoVec.GetInformationObject(0)
+        outInfo2 = outInfoVec.GetInformationObject(1)
+
+        return 1
+
+    def RequestData(self, request, inInfoVec, outInfoVec):
+        from vtkmodules.vtkCommonDataModel import vtkTable
+        from vtkmodules.numpy_interface import dataset_adapter as dsa
+        import lasio
+        import pandas as pd
+
+        las = lasio.read(self._filename)
+        # DEPTH is index by default
+        df_curves = las.df().reset_index()
+        vtk_table_curves = _NcubeDataFrameToVTKTable(df_curves)
+        headers = []
+        for (section, items) in las.sections.items():
+            if items is None or items in ('',[]):
+                continue
+            for item in items:
+                headers.append((section,item['mnemonic'],item['unit'],item['value'],item['descr']))
+        df_header = pd.DataFrame(headers, columns=('Section','Mnemonic','Unit','Value','Description'))
+        vtk_table_header = _NcubeDataFrameToVTKTable(df_header)
+
+        outputHeader = vtkTable.GetData(outInfoVec, 0)
+        outputCurves = vtkTable.GetData(outInfoVec, 1)
+        outputCurves.ShallowCopy(vtk_table_curves)
+        outputHeader.ShallowCopy(vtk_table_header)
+
+        return 1
