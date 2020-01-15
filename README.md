@@ -2,9 +2,9 @@
 
 ## About the project
 
-[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data sources to load well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
-This plugin is not well-optimized yet because we still work on the functionality.
+This plugin is tested on MacOS only because we still work on the functionality. We will test it completely on Linux and Windows for ParaView 5.8 release (waiting in 1-2 months). For now, you can try the plugin on Linux and Windows in ParaView 5.7 with Python 2.7.
 
 ## How to Use
 
