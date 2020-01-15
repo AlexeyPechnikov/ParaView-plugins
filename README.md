@@ -14,7 +14,7 @@ Follow instructions to install Python 2.7 and configure PYTHONPATH environment v
 
 Install required Python 2.7 modules:
 ```
-pip2.7 install numpy xarray pandas geopandas shapely vtk pyproj rasterio
+pip2.7 install numpy xarray pandas geopandas shapely vtk rasterio lasio
 ```
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
