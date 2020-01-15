@@ -87,7 +87,7 @@ def _NcubeDataFrameToVTKTable(df):
     # Create columns
     for colname in df.columns:
         dtype = df[colname].dtype
-        print (colname, dtype)
+        #print (colname, dtype)
         if dtype in ['O','str','datetime64']:
             vtk_arr = vtkStringArray()
         elif dtype in ['int64']:
@@ -770,11 +770,14 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
         import lasio
         import pandas as pd
+        import numpy as np
+        import math
+        import time
 
+        t0 = time.time()
         las = lasio.read(self._filename)
         # DEPTH is index by default
         df_curves = las.df().reset_index()
-
 #        vtk_table_curves = _NcubeDataFrameToVTKTable(df_curves)
         headers = []
         for (section, items) in las.sections.items():
@@ -785,12 +788,23 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         df_header = pd.DataFrame(headers, columns=('Section','Mnemonic','Unit','Value','Description'))
         vtk_table_header = _NcubeDataFrameToVTKTable(df_header)
 
+        # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
+        # https://en.wikipedia.org/wiki/Spherical_coordinate_system
+        # Spherical coordinates (r, θ, φ) as often used in mathematics:
+        # radial distance r, azimuthal angle θ, and polar angle φ.
+        theta = 1./2*math.pi - math.pi*self._az/180
+        phi = math.pi*(90 - self._dip)/180
+        print ("theta",theta,"phi",phi)
+        df_curves['dx'] = np.round(df_curves[self._colname]*np.sin(phi)*np.cos(theta),10)
+        df_curves['dy'] = np.round(df_curves[self._colname]*np.sin(phi)*np.sin(theta),10)
+        df_curves['dz'] = np.round(df_curves[self._colname]*np.cos(phi),10)
+
         vtk_polyData = vtkPolyData()
         vtk_points = vtkPoints()
         vtk_cells = vtkCellArray()
         vtk_cells.InsertNextCell(len(df_curves))
-        for depth in df_curves[self._colname]:
-            pointId = vtk_points.InsertNextPoint(self._x, self._y, self._z-depth)
+        for row in df_curves.itertuples(index=False):
+            pointId = vtk_points.InsertNextPoint(self._x+row.dx, self._y+row.dy, self._z+row.dz)
             vtk_cells.InsertCellPoint(pointId)
         vtk_polyData.SetPoints(vtk_points)
         vtk_polyData.SetLines(vtk_cells)
@@ -812,6 +826,9 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
 
         outputHeader.ShallowCopy(vtk_table_header)
         outputCurves.ShallowCopy(vtk_polyData)
+
+        t1 = time.time()
+        print ("t1-t0", t1-t0)
 
         return 1
 
