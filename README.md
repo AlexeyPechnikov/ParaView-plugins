@@ -2,9 +2,9 @@
 
 ## About the project
 
-[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data sources to load well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
 
-This plugin is not well-optimized yet because we still work on the functionality.
+This plugin is tested on MacOS only because we still work on the functionality. We will test it completely on Linux and Windows for ParaView 5.8 release (waiting in 1-2 months). For now, you can try the plugin on Linux and Windows in ParaView 5.7 with Python 2.7.
 
 ## How to Use
 
@@ -14,10 +14,14 @@ Follow instructions to install Python 2.7 and configure PYTHONPATH environment v
 
 Install required Python 2.7 modules:
 ```
-pip2.7 install numpy xarray pandas geopandas shapely vtk rtree
+pip2.7 install numpy xarray pandas geopandas shapely vtk rasterio lasio
 ```
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
+
+### N-Cube ParaView Plugin Writers:
+
+**ESRI Shapefile** - Use ParaView menu Save -> Save Data -> ESRI Shapefile(\*.shp) to save geometry as ESRI Shapefile (Point). By performance reasons in case when the geometry includes more than 1M points only bounding box will be saved.
 
 ### N-Cube ParaView Plugin Sources:
 
