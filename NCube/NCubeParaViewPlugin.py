@@ -51,7 +51,7 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
     return df
 
 def _NcubeDataFrameToVTKArrays(df):
-    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+    from vtk import vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
 
     arrays = []
     # Create columns
@@ -76,38 +76,9 @@ def _NcubeDataFrameToVTKArrays(df):
             if isinstance(vtk_arr, vtkStringArray):
                 val = str(val)
             vtk_arr.InsertNextValue(val)
-        arrays.append((colname, vtk_arr))
+        arrays.append(vtk_arr)
 
     return arrays
-
-def _NcubeDataFrameToVTKTable(df):
-    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-
-    vtk_table = vtkTable()
-    # Create columns
-    for colname in df.columns:
-        dtype = df[colname].dtype
-        #print (colname, dtype)
-        if dtype in ['O','str','datetime64']:
-            vtk_arr = vtkStringArray()
-        elif dtype in ['int64']:
-            vtk_arr = vtkIntArray()
-        elif dtype in ['float64']:
-            vtk_arr = vtkFloatArray()
-        elif dtype in ['bool']:
-            vtk_arr = vtkBitArray()
-        else:
-            print ('Unknown Pandas column type', dtype)
-            vtk_arr = vtkStringArray()
-        vtk_arr.SetName(colname)
-        for val in df[colname]:
-            # some different datatypes could be saved as strings
-            if isinstance(vtk_arr, vtkStringArray):
-                val = str(val)
-            vtk_arr.InsertNextValue(val)
-        vtk_table.AddColumn(vtk_arr)
-
-    return vtk_table
 
 # list of list of VtkArray's
 def _NCubeGeoDataFrameRowToVTKArrays(items):
@@ -778,7 +749,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         las = lasio.read(self._filename)
         # DEPTH is index by default
         df_curves = las.df().reset_index()
-#        vtk_table_curves = _NcubeDataFrameToVTKTable(df_curves)
         headers = []
         for (section, items) in las.sections.items():
             if items is None or items in ('',[]):
@@ -786,7 +756,10 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
             for item in items:
                 headers.append((section,item['mnemonic'],item['unit'],item['value'],item['descr']))
         df_header = pd.DataFrame(headers, columns=('Section','Mnemonic','Unit','Value','Description'))
-        vtk_table_header = _NcubeDataFrameToVTKTable(df_header)
+        vtk_arrays = _NcubeDataFrameToVTKArrays(df_header)
+        vtk_table_header = vtkTable()
+        for vtk_arr in vtk_arrays:
+            vtk_table_header.AddColumn(vtk_arr)
 
         # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
         # https://en.wikipedia.org/wiki/Spherical_coordinate_system
@@ -810,8 +783,8 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         vtk_polyData.SetLines(vtk_cells)
 
         # set of vtk arrays with column names
-        arrays = _NcubeDataFrameToVTKArrays(df_curves)
-        for (column, vtk_arr) in arrays:
+        vtk_arrays = _NcubeDataFrameToVTKArrays(df_curves)
+        for vtk_arr in vtk_arrays:
 #            vtk_polyData.GetCellData().AddArray(vtk_arr)
             vtk_polyData.GetPointData().AddArray(vtk_arr)
 #        vtk_polyData.GetPointData().SetActiveScalars("DEPTH")
