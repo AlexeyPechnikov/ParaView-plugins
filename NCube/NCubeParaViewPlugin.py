@@ -50,6 +50,65 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
 
     return df
 
+def _NcubeDataFrameToVTKArrays(df):
+    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+
+    arrays = []
+    # Create columns
+    for colname in df.columns:
+        dtype = df[colname].dtype
+        #print (colname, dtype)
+        if dtype in ['O','str','datetime64']:
+            vtk_arr = vtkStringArray()
+        elif dtype in ['int64']:
+            vtk_arr = vtkIntArray()
+        elif dtype in ['float64']:
+            vtk_arr = vtkFloatArray()
+        elif dtype in ['bool']:
+            vtk_arr = vtkBitArray()
+        else:
+            print ('Unknown Pandas column type', dtype)
+            vtk_arr = vtkStringArray()
+        vtk_arr.SetNumberOfComponents(1)
+        vtk_arr.SetName(colname)
+        for val in df[colname]:
+            # some different datatypes could be saved as strings
+            if isinstance(vtk_arr, vtkStringArray):
+                val = str(val)
+            vtk_arr.InsertNextValue(val)
+        arrays.append((colname, vtk_arr))
+
+    return arrays
+
+def _NcubeDataFrameToVTKTable(df):
+    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+
+    vtk_table = vtkTable()
+    # Create columns
+    for colname in df.columns:
+        dtype = df[colname].dtype
+        print (colname, dtype)
+        if dtype in ['O','str','datetime64']:
+            vtk_arr = vtkStringArray()
+        elif dtype in ['int64']:
+            vtk_arr = vtkIntArray()
+        elif dtype in ['float64']:
+            vtk_arr = vtkFloatArray()
+        elif dtype in ['bool']:
+            vtk_arr = vtkBitArray()
+        else:
+            print ('Unknown Pandas column type', dtype)
+            vtk_arr = vtkStringArray()
+        vtk_arr.SetName(colname)
+        for val in df[colname]:
+            # some different datatypes could be saved as strings
+            if isinstance(vtk_arr, vtkStringArray):
+                val = str(val)
+            vtk_arr.InsertNextValue(val)
+        vtk_table.AddColumn(vtk_arr)
+
+    return vtk_table
+
 # list of list of VtkArray's
 def _NCubeGeoDataFrameRowToVTKArrays(items):
     #vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, 
@@ -179,7 +238,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
 
     groups = df.index.unique()
     #print ("groups",groups)
-    
+
     # TEST
 #    groups = groups[:1]
 
@@ -645,38 +704,6 @@ class NCubeShapefileWriter(VTKPythonAlgorithmBase):
 #@smproxy.source(name="NCUBEImageOnTopographySource",
 #       label="N-Cube Image On Topography Source")
 
-def _NcubeDataFrameToVTKTable(df, string_length_limit=None):
-    from vtk import vtkTable, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-
-    vtk_table = vtkTable()
-    # Create columns
-    for colname in df.columns:
-        dtype = df[colname].dtype
-        print (colname, dtype)
-        if dtype in ['O','str','datetime64']:
-            vtk_arr = vtkStringArray()
-        elif dtype in ['int64']:
-            vtk_arr = vtkIntArray()
-        elif dtype in ['float64']:
-            vtk_arr = vtkFloatArray()
-        elif dtype in ['bool']:
-            vtk_arr = vtkBitArray()
-        else:
-            print ('Unknown Pandas column type', dtype)
-            vtk_arr = vtkStringArray()
-        vtk_arr.SetName(colname)
-        for val in df[colname]:
-            # some different datatypes could be saved as strings
-            if isinstance(vtk_arr, vtkStringArray):
-                val = str(val)
-                # crop too long strings
-                if string_length_limit is not None and len(val) > string_length_limit:
-                    val = val[:string_length_limit] + ' ...'
-            vtk_arr.InsertNextValue(val)
-        vtk_table.AddColumn(vtk_arr)
-
-    return vtk_table
-
 # To add a reader, we can use the following decorators
 #   @smproxy.source(name="PythonCSVReader", label="Python-based CSV Reader")
 #   @smhint.xml("""<ReaderFactory extensions="csv" file_description="Numpy CSV files" />""")
@@ -688,8 +715,14 @@ def _NcubeDataFrameToVTKTable(df, string_length_limit=None):
 class NCubeLASReader(VTKPythonAlgorithmBase):
     """A reader that reads a LAS Well Log file"""
     def __init__(self):
-        VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=2, outputType='vtkTable')
+        VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=2)
         self._filename = None
+        self._colname = "DEPTH"
+        self._x = 0
+        self._y = 0
+        self._z = 0
+        self._az = 0
+        self._dip = -90
 
     @smproperty.stringvector(name="FileName")
     @smdomain.filelist()
@@ -700,23 +733,49 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
             self._filename = name
             self.Modified()
 
-    def RequestInformation(self, request, inInfoVec, outInfoVec):
-        executive = self.GetExecutive()
-        outInfo = outInfoVec.GetInformationObject(0)
-        outInfo2 = outInfoVec.GetInformationObject(1)
+    @smproperty.doublevector(name="Location", default_values=[0, 0, 0])
+    @smdomain.doublerange()
+    def SetLocation(self, x, y, z):
+        self._x = x
+        self._y = y
+        self._z = z
+        self.Modified()
 
+    @smproperty.doublevector(name="Azimuth", default_values=0)
+    @smdomain.doublerange(min=0, max=360)
+    def SetAzimuth(self, az):
+        self._az = az
+        self.Modified()
+
+    @smproperty.doublevector(name="Dip", default_values=-90)
+    @smdomain.doublerange(min=-90, max=90)
+    def SetDip(self, dip):
+        self._dip = dip
+        self.Modified()
+
+
+    def FillOutputPortInformation(self, port, info):
+        from vtk import vtkDataObject
+        if port == 1:
+            info.Set(vtkDataObject.DATA_TYPE_NAME(), "vtkPolyData")
+        else:
+            info.Set(vtkDataObject.DATA_TYPE_NAME(), "vtkTable")
         return 1
+
 
     def RequestData(self, request, inInfoVec, outInfoVec):
         from vtkmodules.vtkCommonDataModel import vtkTable
-        from vtkmodules.numpy_interface import dataset_adapter as dsa
+        #from vtkmodules.numpy_interface import dataset_adapter as dsa
+        from vtk.util import numpy_support
+        from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
         import lasio
         import pandas as pd
 
         las = lasio.read(self._filename)
         # DEPTH is index by default
         df_curves = las.df().reset_index()
-        vtk_table_curves = _NcubeDataFrameToVTKTable(df_curves)
+
+#        vtk_table_curves = _NcubeDataFrameToVTKTable(df_curves)
         headers = []
         for (section, items) in las.sections.items():
             if items is None or items in ('',[]):
@@ -726,9 +785,54 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         df_header = pd.DataFrame(headers, columns=('Section','Mnemonic','Unit','Value','Description'))
         vtk_table_header = _NcubeDataFrameToVTKTable(df_header)
 
+        vtk_polyData = vtkPolyData()
+        vtk_points = vtkPoints()
+        vtk_cells = vtkCellArray()
+        vtk_cells.InsertNextCell(len(df_curves))
+        for depth in df_curves[self._colname]:
+            pointId = vtk_points.InsertNextPoint(self._x, self._y, self._z-depth)
+            vtk_cells.InsertCellPoint(pointId)
+        vtk_polyData.SetPoints(vtk_points)
+        vtk_polyData.SetLines(vtk_cells)
+
+        # set of vtk arrays with column names
+        arrays = _NcubeDataFrameToVTKArrays(df_curves)
+        for (column, vtk_arr) in arrays:
+#            vtk_polyData.GetCellData().AddArray(vtk_arr)
+            vtk_polyData.GetPointData().AddArray(vtk_arr)
+#        vtk_polyData.GetPointData().SetActiveScalars("DEPTH")
+
+#        print (df_curves['DEPTH'].dtype)
+#        vtk_array = numpy_support.numpy_to_vtk(num_array=df_curves['DEPTH'].values, deep=True, array_type=VTK_FLOAT)
+#        vtk_array.SetName("DEPTH")
+#        vtk_polyData.GetPointData().SetScalars(vtk_array)
+
         outputHeader = vtkTable.GetData(outInfoVec, 0)
-        outputCurves = vtkTable.GetData(outInfoVec, 1)
-        outputCurves.ShallowCopy(vtk_table_curves)
+        outputCurves = vtkPolyData.GetData(outInfoVec, 1)
+
         outputHeader.ShallowCopy(vtk_table_header)
+        outputCurves.ShallowCopy(vtk_polyData)
 
         return 1
+
+
+#@smproxy.filter(name="NCubeTableToLineFilter",
+#       label="N-Cube Table To Line Filter")
+#@smproperty.input(name="InputTable", port_index=0)
+#@smdomain.datatype(dataTypes=["vtkTable"], composite_data_supported=False)
+#class NCubeTableToLineFilter(VTKPythonAlgorithmBase):
+#    def __init__(self):
+#        VTKPythonAlgorithmBase.__init__(self, nInputPorts=1, inputType="vtkTable", nOutputPorts=1, outputType="vtkPolyData")
+#
+#    def RequestData(self, request, inInfoVec, outInfoVec):
+#        from vtkmodules.vtkCommonDataModel import vtkTable, vtkPolyData
+#        from vtk.util.numpy_support import vtk_to_numpy
+#
+#        input0 = vtkTable.GetData(inInfoVec[0], 0)
+#        output = vtkPolyData.GetData(outInfoVec, 0)
+#        # do work
+#        print("Pretend work done!")
+#        col = input.GetColumnByName('Field 0')
+#        print (vtk_to_numpy(col))
+#        return 1
+
