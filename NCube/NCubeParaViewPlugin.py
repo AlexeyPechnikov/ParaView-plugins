@@ -21,6 +21,8 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None, extent=
     from shapely.ops import transform
 
     df = gpd.read_file(shapename, encoding=shapeencoding)
+    # remove NULL geometries
+    df = df[df.geometry.notnull()]
     if (len(df)) == 0:
         return
     if shapecol is not None:
@@ -123,17 +125,11 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
     vtk_points = vtkPoints()
     vtk_cells = vtkCellArray()
     # get part(s) of (multi)geometry
-    boundary = geometry.boundary
-    #boundary = geometry.exterior
-    if boundary.type == 'MultiLineString':
-    #if isinstance(geometry, (BaseMultipartGeometry)):
-        geometries = [geom for geom in boundary]
-        #geometries = geometry.geoms
+    if isinstance(geometry, (BaseMultipartGeometry)):
+        geometries = [geom for geom in geometry]
     else:
-        geometries = [boundary]
-        #geometries = [geometry]
-    #print ([geom.type for geom in geometries])
-    #print (geometries)
+        geometries = [geometry]
+    print ([geom.type for geom in geometries])
     for geom in geometries:
         coords = geom.coords
         #coords = geom.exterior.coords
@@ -170,10 +166,10 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
     print ("GetNumberOfPoints", vtk_points.GetNumberOfPoints())
     vtk_polyData = vtkPolyData()
     vtk_polyData.SetPoints(vtk_points)
-#    if geom.type == 'Point':
-#        vtk_polyData.SetVerts(vtk_cells)
-#    else:
-    vtk_polyData.SetLines(vtk_cells)
+    if geometry.type in ['Point','MultiPoint']:
+        vtk_polyData.SetVerts(vtk_cells)
+    else:
+        vtk_polyData.SetLines(vtk_cells)
 
     return vtk_polyData
 
@@ -214,7 +210,7 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
     if df is None:
         return
 
-    groups = df.index.unique()
+    groups = df.index.unique() ;#[11454:11455]
     #print ("groups",groups)
 
     # TEST
@@ -226,7 +222,8 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         #print ("group",group)
         # Python 2 string issue wrapped
         if hasattr(group, 'encode'):
-            _df = df[df.index.str.match(group)].reset_index()
+            # select only equals
+            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)].reset_index()
         else:
             _df = df[df.index == group].reset_index()
         vtk_appendPolyData = vtkAppendPolyData()
