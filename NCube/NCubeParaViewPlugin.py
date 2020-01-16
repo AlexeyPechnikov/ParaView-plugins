@@ -163,7 +163,7 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
     if vtk_points.GetNumberOfPoints() < 2:
         return
 
-    print ("GetNumberOfPoints", vtk_points.GetNumberOfPoints())
+    #print ("GetNumberOfPoints", vtk_points.GetNumberOfPoints())
     vtk_polyData = vtkPolyData()
     vtk_polyData.SetPoints(vtk_points)
     if geometry.type in ['Point','MultiPoint']:
