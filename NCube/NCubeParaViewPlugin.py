@@ -113,24 +113,30 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
         vtk_row.append((vtk_arr, value))
     return vtk_row
 
-
-def _NCubeGeometryToPolyData(geometries, dem=None):
+# process [multi]geometry
+def _NCubeGeometryToPolyData(geometry, dem=None):
+    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
     from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
     import xarray as xr
     import numpy as np
 
-
     vtk_points = vtkPoints()
     vtk_cells = vtkCellArray()
-    # iterate parts of (multi)geometry
+    # get part(s) of (multi)geometry
+    boundary = geometry.boundary
+    #boundary = geometry.exterior
+    if boundary.type == 'MultiLineString':
+    #if isinstance(geometry, (BaseMultipartGeometry)):
+        geometries = [geom for geom in boundary]
+        #geometries = geometry.geoms
+    else:
+        geometries = [boundary]
+        #geometries = [geometry]
+    #print ([geom.type for geom in geometries])
+    #print (geometries)
     for geom in geometries:
-        #print (geom)
-        if geom.type == 'Polygon':
-            # use exterior coordinates only
-            coords = geom.exterior.coords
-        else:
-            coords = geom.coords
-
+        coords = geom.coords
+        #coords = geom.exterior.coords
         xs = np.array(coords.xy[0])
         ys = np.array(coords.xy[1])
         if len(coords.xy) > 2:
@@ -226,8 +232,8 @@ def _NCubeGeometryOnTopography(shapename, toponame, shapecol, shapeencoding):
         vtk_appendPolyData = vtkAppendPolyData()
         # iterate rows with the same attributes and maybe multiple geometries
         for rowidx,row in _df.iterrows():
-            geoms = _NCubeTopographyCheckGeometries([row.geometry])
-            vtk_polyData = _NCubeGeometryToPolyData(geoms, dem)
+            #geoms = _NCubeTopographyCheckGeometries([row.geometry])
+            vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
             if vtk_polyData is None:
                 continue
             vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row.to_dict())
@@ -290,41 +296,6 @@ def _NCubeTopographyToGrid(dem):
 #    return sgrid
     return thresh.GetOutput()
 
-# types = ['Polygon', 'MultiPolygon']
-# Cleanup input list of geometries and split multi-geometries to single geometries
-def _NCubeTopographyCheckGeometries(geometries, types=None):
-    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
-
-    # output geometries list
-    output = []
-
-    # iterate input geometries
-    for geometry in geometries:
-        if geometry is None:
-            continue
-
-        # iterate nulti-geometries when needed
-        if isinstance(geometry, (BaseMultipartGeometry)):
-            #print ("BaseMultipartGeometry")
-            _geometries = geometry.geoms
-        elif isinstance(geometry, (BaseGeometry)):
-            #print ("BaseGeometry")
-            _geometries = [geometry]
-        else:
-            print ("Unknown geometry type", geometry.geometryType())
-            conntinue
-
-        for _geometry in _geometries:
-            if not _geometry.is_valid:
-                continue
-            if _geometry.is_empty:
-                continue
-            if types is not None and not _geometry.geometryType() in types:
-                continue
-            output.append(_geometry)
-
-    return output
-
 def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
     from vtk import vtkAppendFilter
     #vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
@@ -371,33 +342,31 @@ def _NCubeTopography(shapename, toponame, shapecol, shapeencoding):
         else:
             geoms = df[df.index == group].geometry
 
-        # processing closed areas only
-        geoms = _NCubeTopographyCheckGeometries(geoms, ['Polygon', 'MultiPolygon'])
         vtk_append = vtkAppendFilter()
-        for geom in geoms:
-            # rasterize geomemetry
-            try:
-                out_image, out_transform = rasterio.mask.mask(dem, geom,crop=True, filled=True)
-            except:
-                # geometry outside of the raster, etc.
-                continue
-            image = out_image.squeeze()
-            print (image.shape)
-            (xs, _) = rasterio.transform.xy(out_transform, image.shape[1]*[0], range(image.shape[1]), offset='center')
-            (_, ys) = rasterio.transform.xy(out_transform, range(image.shape[0]), image.shape[0]*[0], offset='center')
-            da = xr.DataArray(image, coords={'x': xs, 'y': ys}, dims=('y', 'x'))
-            # process rasterized geometry
-            vtk_ugrid = _NCubeTopographyToGrid(da)
-            if vtk_ugrid is None:
-                continue
-            if shapecol:
-                vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays({shapecol:group})
-                for (vtk_arr, val) in vtk_arrays:
-                    for _ in range(vtk_ugrid.GetNumberOfCells()):
-                        vtk_arr.InsertNextValue(val)
-                    vtk_ugrid.GetCellData().AddArray(vtk_arr)
-            # compose
-            vtk_append.AddInputData(vtk_ugrid)
+        # rasterize geomemetry
+        try:
+            out_image, out_transform = rasterio.mask.mask(dem, geoms, crop=True, filled=True)
+        except:
+            # geometry outside of the raster, etc.
+            print (group, "exception")
+            continue
+        image = out_image.squeeze()
+        print (image.shape)
+        (xs, _) = rasterio.transform.xy(out_transform, image.shape[1]*[0], range(image.shape[1]), offset='center')
+        (_, ys) = rasterio.transform.xy(out_transform, range(image.shape[0]), image.shape[0]*[0], offset='center')
+        da = xr.DataArray(image, coords={'x': xs, 'y': ys}, dims=('y', 'x'))
+        # process rasterized geometry
+        vtk_ugrid = _NCubeTopographyToGrid(da)
+        if vtk_ugrid is None:
+            continue
+        if shapecol:
+            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays({shapecol:group})
+            for (vtk_arr, val) in vtk_arrays:
+                for _ in range(vtk_ugrid.GetNumberOfCells()):
+                    vtk_arr.InsertNextValue(val)
+                vtk_ugrid.GetCellData().AddArray(vtk_arr)
+        # compose
+        vtk_append.AddInputData(vtk_ugrid)
         # nothing to process
         if vtk_append.GetNumberOfInputConnections(0) == 0:
             continue
