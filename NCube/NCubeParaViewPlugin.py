@@ -654,12 +654,12 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
     def __init__(self):
         VTKPythonAlgorithmBase.__init__(self, nInputPorts=0, nOutputPorts=2)
         self._filename = None
-        self._colname = "DEPTH"
         self._x = 0
         self._y = 0
         self._z = 0
         self._az = 0
         self._dip = -90
+        self._scale = 1.0
 
     @smproperty.stringvector(name="FileName")
     @smdomain.filelist()
@@ -690,6 +690,25 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         self._dip = dip
         self.Modified()
 
+    @smproperty.stringvector(name="Units", information_only="1")
+    def GetUnits(self):
+        return ["M", "FT"]
+    @smproperty.stringvector(name="Unit", number_of_elements="1")
+    @smdomain.xml(\
+        """<StringListDomain name="list">
+                <RequiredProperties>
+                    <Property name="Units" function="Units"/>
+                </RequiredProperties>
+            </StringListDomain>
+        """)
+    def SetUnit(self, unit):
+        print("Setting unit", unit)
+        if unit == 'M':
+            self._scale = 1.0
+        else:
+            self._scale = 0.3048
+        self.Modified()
+
 
     def FillOutputPortInformation(self, port, info):
         from vtk import vtkDataObject
@@ -713,8 +732,9 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
 
         t0 = time.time()
         las = lasio.read(self._filename)
-        # DEPTH is index by default
-        df_curves = las.df().reset_index()
+        
+        # DEPTH is index
+        df_curves = las.df()
         headers = []
         for (section, items) in las.sections.items():
             if items is None or items in ('',[]):
@@ -727,6 +747,12 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         for vtk_arr in vtk_arrays:
             vtk_table_header.AddColumn(vtk_arr)
 
+        outputHeader = vtkTable.GetData(outInfoVec, 0)
+        outputHeader.ShallowCopy(vtk_table_header)
+
+
+        # set of vtk arrays with column names
+        vtk_arrays = _NcubeDataFrameToVTKArrays(df_curves)
         # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
         # https://en.wikipedia.org/wiki/Spherical_coordinate_system
         # Spherical coordinates (r, θ, φ) as often used in mathematics:
@@ -734,9 +760,9 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         theta = 1./2*math.pi - math.pi*self._az/180
         phi = math.pi*(90 - self._dip)/180
         print ("theta",theta,"phi",phi)
-        df_curves['dx'] = np.round(df_curves[self._colname]*np.sin(phi)*np.cos(theta),10)
-        df_curves['dy'] = np.round(df_curves[self._colname]*np.sin(phi)*np.sin(theta),10)
-        df_curves['dz'] = np.round(df_curves[self._colname]*np.cos(phi),10)
+        df_curves['dx'] = np.round(self._scale*df_curves.index*np.sin(phi)*np.cos(theta),10)
+        df_curves['dy'] = np.round(self._scale*df_curves.index*np.sin(phi)*np.sin(theta),10)
+        df_curves['dz'] = np.round(self._scale*df_curves.index*np.cos(phi),10)
 
         vtk_polyData = vtkPolyData()
         vtk_points = vtkPoints()
@@ -748,8 +774,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         vtk_polyData.SetPoints(vtk_points)
         vtk_polyData.SetLines(vtk_cells)
 
-        # set of vtk arrays with column names
-        vtk_arrays = _NcubeDataFrameToVTKArrays(df_curves)
         for vtk_arr in vtk_arrays:
 #            vtk_polyData.GetCellData().AddArray(vtk_arr)
             vtk_polyData.GetPointData().AddArray(vtk_arr)
@@ -760,10 +784,7 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
 #        vtk_array.SetName("DEPTH")
 #        vtk_polyData.GetPointData().SetScalars(vtk_array)
 
-        outputHeader = vtkTable.GetData(outInfoVec, 0)
         outputCurves = vtkPolyData.GetData(outInfoVec, 1)
-
-        outputHeader.ShallowCopy(vtk_table_header)
         outputCurves.ShallowCopy(vtk_polyData)
 
         t1 = time.time()
