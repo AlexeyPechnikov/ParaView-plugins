@@ -129,7 +129,6 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
         geometries = [geom for geom in geometry]
     else:
         geometries = [geometry]
-    print ([geom.type for geom in geometries])
     for geom in geometries:
         coords = geom.coords
         #coords = geom.exterior.coords
