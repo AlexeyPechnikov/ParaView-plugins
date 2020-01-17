@@ -10,7 +10,7 @@ Optional Collars Table attributes could be defined for the right 3D model:
   * Top Northing (Y) Location - projected project coordinate, meters
   * Top Elevation (Z) Location - projected project coordinate, meters
 
-As units parameter for the right depth scale:
+Use "unit" parameter for the right depth scale:
 
   * Unit - feet (FT) or meters (M). It should be defined in the reader's "Header" table but for now we define it manually.
 
