@@ -21,6 +21,10 @@ Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) p
 
 ### N-Cube ParaView Plugin Writers:
 
+**N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
+
+### N-Cube ParaView Plugin Writers:
+
 **ESRI Shapefile** - Use ParaView menu Save -> Save Data -> ESRI Shapefile(\*.shp) to save geometry as ESRI Shapefile (Point). By performance reasons in case when the geometry includes more than 1M points only bounding box will be saved.
 
 ### N-Cube ParaView Plugin Sources:
@@ -51,7 +55,7 @@ See also our code snippets repository [ParaView Programmable Source and Programm
 
 ## Used Technologies
 
-We prefer stable and modern programming libraries and technologies:
+We use this set of programming libraries and technologies:
 
 [VTK: The Visualization Toolkit](https://vtk.org/)
 
@@ -68,6 +72,8 @@ We prefer stable and modern programming libraries and technologies:
 [GEOS: Geometry Engine, Open Source](https://trac.osgeo.org/geos/)
 
 [PROJ: generic coordinate transformation software](https://proj.org/)
+
+[Log ASCII Standard (LAS) files in Python](https://lasio.readthedocs.io/en/latest/)
 
 ## Authors
 
