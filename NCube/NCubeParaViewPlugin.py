@@ -659,7 +659,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         self._z = 0
         self._az = 0
         self._dip = -90
-        self._scale = 1.0
 
     @smproperty.stringvector(name="FileName")
     @smdomain.filelist()
@@ -689,26 +688,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
     def SetDip(self, dip):
         self._dip = dip
         self.Modified()
-
-    @smproperty.stringvector(name="Units", information_only="1")
-    def GetUnits(self):
-        return ["M", "FT"]
-    @smproperty.stringvector(name="Unit", number_of_elements="1")
-    @smdomain.xml(\
-        """<StringListDomain name="list">
-                <RequiredProperties>
-                    <Property name="Units" function="Units"/>
-                </RequiredProperties>
-            </StringListDomain>
-        """)
-    def SetUnit(self, unit):
-        print("Setting unit", unit)
-        if unit == 'M':
-            self._scale = 1.0
-        else:
-            self._scale = 0.3048
-        self.Modified()
-
 
     def FillOutputPortInformation(self, port, info):
         from vtk import vtkDataObject
@@ -756,6 +735,16 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         outputHeader.ShallowCopy(vtk_table_header)
 
 
+        # define scale factor by depth units
+        unit = las.curves[0]['unit']
+        if unit in ['FT','ft']:
+            scale = 0.3048
+        elif unit in ['M','m']:
+            scale = 1.0
+        else:
+            # we can use additional ParaView filter to fix it later
+            scale = 1.0
+            print ("Unknown LAS header unit", unit)
         # set of vtk arrays with column names
         vtk_arrays = _NcubeDataFrameToVTKArrays(df_curves)
         # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
@@ -764,10 +753,10 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         # radial distance r, azimuthal angle θ, and polar angle φ.
         theta = 1./2*math.pi - math.pi*self._az/180
         phi = math.pi*(90 - self._dip)/180
-        print ("theta",theta,"phi",phi)
-        df_curves['dx'] = np.round(self._scale*df_curves.index*np.sin(phi)*np.cos(theta),10)
-        df_curves['dy'] = np.round(self._scale*df_curves.index*np.sin(phi)*np.sin(theta),10)
-        df_curves['dz'] = np.round(self._scale*df_curves.index*np.cos(phi),10)
+        #print ("theta",theta,"phi",phi)
+        df_curves['dx'] = np.round(scale*df_curves.index*np.sin(phi)*np.cos(theta),10)
+        df_curves['dy'] = np.round(scale*df_curves.index*np.sin(phi)*np.sin(theta),10)
+        df_curves['dz'] = np.round(scale*df_curves.index*np.cos(phi),10)
 
         vtk_polyData = vtkPolyData()
         vtk_points = vtkPoints()
