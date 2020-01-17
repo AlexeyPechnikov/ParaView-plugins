@@ -739,8 +739,13 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         for (section, items) in las.sections.items():
             if items is None or items in ('',[]):
                 continue
-            for item in items:
-                headers.append((section,item['mnemonic'],item['unit'],item['value'],item['descr']))
+            if isinstance(items, (str,unicode)):
+                headers.append((section,'','',items,''))
+            elif isinstance(items, (list)):
+                for item in items:
+                    headers.append((section,item['mnemonic'],item['unit'],item['value'],item['descr']))
+            else:
+                print ("Unknown LAS header section type", type(items), iyems)
         df_header = pd.DataFrame(headers, columns=('Section','Mnemonic','Unit','Value','Description'))
         vtk_arrays = _NcubeDataFrameToVTKArrays(df_header)
         vtk_table_header = vtkTable()
