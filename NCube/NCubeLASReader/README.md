@@ -10,9 +10,9 @@ Optional Collars Table attributes could be defined for the right 3D model:
   * Top Northing (Y) Location - projected project coordinate, meters
   * Top Elevation (Z) Location - projected project coordinate, meters
 
-Use "unit" parameter for the right depth scale:
+#### Defining of "unit" parameter (M, FT)
 
-  * Unit - feet (FT) or meters (M). It should be defined in the reader's "Header" table but for now we define it manually.
+The unit parameter right definition is required for the right depth scale. It should be defined at the reader's "Header" table as first "Unit" in section "Curves" as meters (M, m) or feet (FT, ft). In case when it's defined incorrect you could fix it in the LAS file or append "Transform" ParaView filter to scale the reader's "Curves".
 
 #### Definition of "azimuth"
 
