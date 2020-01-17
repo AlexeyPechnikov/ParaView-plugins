@@ -19,7 +19,7 @@ pip2.7 install numpy xarray pandas geopandas shapely vtk rasterio lasio
 
 Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
 
-### N-Cube ParaView Plugin Writers:
+### N-Cube ParaView Plugin Readers:
 
 **N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
 
