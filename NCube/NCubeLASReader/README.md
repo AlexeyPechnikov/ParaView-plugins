@@ -10,7 +10,7 @@ Optional Collars Table attributes could be defined for the right 3D model:
   * Top Northing (Y) Location - projected project coordinate, meters
   * Top Elevation (Z) Location - projected project coordinate, meters
 
-#### Defining of "unit" parameter (M, FT)
+#### Defining of depth "unit" parameter (meters or feet)
 
 The unit parameter right definition is required for the right depth scale. It should be defined at the reader's "Header" table as first "Unit" in section "Curves" as meters (M, m) or feet (FT, ft). In case when it's defined incorrect you could fix it in the LAS file or append "Transform" ParaView filter to scale the reader's "Curves".
 
