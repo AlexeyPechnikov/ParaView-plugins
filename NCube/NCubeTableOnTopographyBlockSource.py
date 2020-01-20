@@ -8,6 +8,12 @@ from paraview.util.vtkAlgorithm import *
 
 from NCube import _NCubeGeoDataFrameToTopography
 
+import geopandas as gpd
+import pandas as pd
+from shapely.geometry import Point, LineString
+from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+import time
+
 #------------------------------------------------------------------------------
 # N-Cube Table On Topography Block Source
 #
@@ -48,11 +54,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
-        import geopandas as gpd
-        import pandas as pd
-        from shapely.geometry import Point, LineString
-        from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
-        import time
 
         if self._tablename is None or self._xcol is None or self._ycol is None:
             return 1
@@ -153,7 +154,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._tablename is None:
             return []
         # Load file
-        import pandas as pd
         df = pd.read_csv(self._tablename, nrows=0)
         cols = sorted(df.columns.values)
         return ['None'] + list(map(str,cols))
@@ -178,7 +178,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._tablename is None:
             return []
         # Load file
-        import pandas as pd
         df = pd.read_csv(self._tablename, nrows=1)
         cols = sorted(df._get_numeric_data().columns)
         print ("GetColumns", cols)

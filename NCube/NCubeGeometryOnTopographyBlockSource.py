@@ -5,8 +5,13 @@
 # License: http://opensource.org/licenses/MIT
 
 from paraview.util.vtkAlgorithm import * 
-
 from NCube import _NCubeGeoDataFrameLoad, _NCubeGeometryOnTopography
+
+import xarray as xr
+import numpy as np
+import geopandas as gpd
+from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+import time
 
 #------------------------------------------------------------------------------
 # N-Cube Shapefile On Topography Block Source
@@ -27,10 +32,6 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
-        import xarray as xr
-        import numpy as np
-        from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
-        import time
 
         if self._shapename is None:
             return 1
@@ -102,7 +103,6 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._shapename is None:
             return []
         # Load shapefile
-        import geopandas as gpd
         df = gpd.read_file(self._shapename, encoding=self._shapeencoding)
         cols = sorted(df.columns.values)
         del df

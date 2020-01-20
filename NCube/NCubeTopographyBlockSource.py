@@ -8,6 +8,15 @@ from paraview.util.vtkAlgorithm import *
 
 from NCube import _str, _NCubeGeoDataFrameLoad, _NCubeTopography, _NCubeTopographyToGrid
 
+# this import is required to fix the issue: https://github.com/Toblerity/Shapely/issues/553
+from shapely.geometry import box
+import rasterio
+import xarray as xr
+import numpy as np
+import geopandas as gpd
+from vtk import vtkCompositeDataSet, vtkMultiBlockDataSet
+import time
+
 #------------------------------------------------------------------------------
 # N-Cube Topography Block Source
 #------------------------------------------------------------------------------
@@ -27,13 +36,6 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
-        # this import is required to fix the issue: https://github.com/Toblerity/Shapely/issues/553
-        from shapely.geometry import box
-        import rasterio
-        import xarray as xr
-        import numpy as np
-        from vtk import vtkCompositeDataSet, vtkMultiBlockDataSet
-        import time
 
         if self._toponame is None:
             return 1
@@ -104,7 +106,6 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._shapename is None:
             return []
         # Load shapefile
-        import geopandas as gpd
         df = gpd.read_file(self._shapename, encoding=self._shapeencoding)
         cols = sorted(df.columns.values)
         del df

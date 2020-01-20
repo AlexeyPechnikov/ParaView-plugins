@@ -8,6 +8,16 @@ from paraview.util.vtkAlgorithm import *
 
 from NCube import _NcubeDataFrameToVTKArrays
 
+from vtk import vtkDataObject
+from vtkmodules.vtkCommonDataModel import vtkTable
+from vtk.util import numpy_support
+from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
+import pandas as pd
+import numpy as np
+import lasio
+import math
+import time
+
 # TODO
 #@smproxy.source(name="NCUBEImageOnTopographySource",
 #       label="N-Cube Image On Topography Source")
@@ -61,7 +71,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         self.Modified()
 
     def FillOutputPortInformation(self, port, info):
-        from vtk import vtkDataObject
         if port == 1:
             info.Set(vtkDataObject.DATA_TYPE_NAME(), "vtkPolyData")
         else:
@@ -70,15 +79,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfoVec, outInfoVec):
-        from vtkmodules.vtkCommonDataModel import vtkTable
-        #from vtkmodules.numpy_interface import dataset_adapter as dsa
-        from vtk.util import numpy_support
-        from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
-        import lasio
-        import pandas as pd
-        import numpy as np
-        import math
-        import time
 
         t0 = time.time()
         las = lasio.read(self._filename)

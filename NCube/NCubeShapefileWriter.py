@@ -8,6 +8,8 @@ from paraview.util.vtkAlgorithm import *
 
 from NCube import _NCubeDataSetToGeoDataFrame
 
+from vtkmodules.vtkCommonDataModel import vtkDataSet
+
 #------------------------------------------------------------------------------
 # N-Cube DataSet to Shapefile Writer
 # N-Cube DataSet to GeoPackage Writer
@@ -30,7 +32,6 @@ class NCubeShapefileWriter(VTKPythonAlgorithmBase):
             self.Modified()
 
     def RequestData(self, request, inInfoVec, outInfoVec):
-        from vtkmodules.vtkCommonDataModel import vtkDataSet
 
         vtk_data = vtkDataSet.GetData(inInfoVec[0], 0)
         gdf = _NCubeDataSetToGeoDataFrame(vtk_data)
