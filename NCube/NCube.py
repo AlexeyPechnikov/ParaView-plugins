@@ -4,6 +4,7 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
+
 def _str(text):
     import sys
     # fix string issue for Python 2
@@ -11,17 +12,156 @@ def _str(text):
         return text.encode('utf-8')
     return str(text)
 
+# process [multi]geometry
+def _NCubeGeometryToPolyData(geometry, dem=None):
+    #from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+    from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+    import xarray as xr
+    import numpy as np
+
+    vtk_points = vtkPoints()
+    vtk_cells = vtkCellArray()
+    # get part(s) of (multi)geometry
+    #if isinstance(geometry, (BaseMultipartGeometry)):
+    if geometry.type.startswith('Multi') or geometry.type == 'GeometryCollection':
+        geometries = [geom for geom in geometry]
+    else:
+        geometries = [geometry]
+    for geom in geometries:
+        # polygon
+        #print ("geom.type", geom.type)
+        if geom.type == 'Polygon':
+            coords = np.asarray(geom.exterior.coords)
+        else:
+            coords = np.asarray(geom.coords)
+        xs = coords[:,0]
+        ys = coords[:,1]
+        if coords.shape[1] > 2:
+            zs = np.array(coords[:,2])
+        else:
+            zs = np.array([0]*len(xs))
+        #print (xs)
+        # rasterize geometries as lines
+        if dem is not None:
+#            print (dem)
+            zs += dem.sel(x=xr.DataArray(xs), y=xr.DataArray(ys), method='nearest').values
+        #print ("xs", xs)
+        mask = np.where(~np.isnan(zs))[0]
+        mask2 = np.where(np.diff(mask)!=1)[0]+1
+        xs = np.split(xs[mask], mask2)
+        ys = np.split(ys[mask], mask2)
+        zs = np.split(zs[mask], mask2)
+        for (_xs,_ys,_zs) in zip(xs,ys,zs):
+            # need to have 2 point or more
+            #if len(_xs) <= 1:
+            #    continue
+            vtk_cells.InsertNextCell(len(_xs))
+            for (x,y,z) in zip(_xs,_ys,_zs):
+                pointId = vtk_points.InsertNextPoint(x, y, z)
+                vtk_cells.InsertCellPoint(pointId)
+
+    # not enougth valid points
+    if vtk_points.GetNumberOfPoints() < 1:
+        return
+
+    #print ("GetNumberOfPoints", vtk_points.GetNumberOfPoints())
+    vtk_polyData = vtkPolyData()
+    vtk_polyData.SetPoints(vtk_points)
+    #if geometry.type in ['Point','MultiPoint']:
+    if geometry.type.endswith('Point'):
+        vtk_polyData.SetVerts(vtk_cells)
+    else:
+        vtk_polyData.SetLines(vtk_cells)
+    return vtk_polyData
+
+# process geodataframe and xarray raster
+def _NCubeGeometryOnTopography(df, dem):
+    from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
+    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
+    from shapely.geometry import box
+    #import xarray as xr
+    import numpy as np
+
+    #print ("_NCUBEGeometryOnTopography start")
+
+    dem_extent = dem_crs = None
+    if dem is not None:
+        dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
+        dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+        #print (dem.values)
+        df = _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs)
+
+    groups = df.index.unique() ;#[11454:11455]
+    #print ("groups",groups)
+
+    # TEST
+    #groups = groups[:1]
+
+    # iterate blocks
+    vtk_blocks = []
+    for group in groups:
+        #print ("group",group)
+        # Python 2 string issue wrapped
+        if hasattr(group, 'encode'):
+            # select only equals
+            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)].reset_index()
+        else:
+            _df = df[df.index == group].reset_index()
+        #print (_df.geometry)
+        vtk_appendPolyData = vtkAppendPolyData()
+        # iterate rows with the same attributes and maybe multiple geometries
+        for rowidx,row in _df.iterrows():
+            #print ("row", row)
+            vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
+            if vtk_polyData is None:
+                #print ("vtk_polyData is None")
+                continue
+            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row.to_dict())
+            for (vtk_arr, val) in vtk_arrays:
+                if val is None:
+                    continue
+#                for _ in range(vtk_polyData.GetNumberOfCells()):
+#                    vtk_arr.InsertNextValue(val)
+                if isinstance(val, (tuple)):
+#                    if np.any(np.isnan(val)):
+#                        continue
+                    # add vector
+                    for _ in range(vtk_polyData.GetNumberOfCells()):
+                        vtk_arr.InsertNextTuple(val)
+                    vtk_polyData.GetCellData().AddArray(vtk_arr)
+                else:
+                    # add scalar
+                    for _ in range(vtk_polyData.GetNumberOfCells()):
+                        vtk_arr.InsertNextValue(val)
+                    vtk_polyData.GetCellData().AddArray(vtk_arr)
+            # compose vtkPolyData
+            vtk_appendPolyData.AddInputData(vtk_polyData)
+        # nothing to process
+        if vtk_appendPolyData.GetNumberOfInputConnections(0) == 0:
+            continue
+        vtk_appendPolyData.Update()
+        vtk_block = vtk_appendPolyData.GetOutput()
+
+        vtk_blocks.append((_str(group),vtk_block))
+
+    #print ("_NCUBEGeometryOnTopography end")
+
+    return vtk_blocks
 
 def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
     import geopandas as gpd
 
     # extract the geometry coordinate system
-    df_crs = str(df.crs['init']) if df.crs != {} else None
+    if df.crs is not None and df.crs != {}:
+        df_crs =  str(df.crs['init'])
+    else:
+        df_crs = None
     print ("df_crs",df_crs,"dem_crs",dem_crs)
 
     # reproject when the both coordinate systems are defined and these are different
     if df_crs and dem_crs:
         df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[dem_extent])
+        print ("df_extent", df_extent.crs)
         extent_reproj = df_extent.to_crs({'init' : df_crs})['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
         if extent_reproj.is_valid:
@@ -39,7 +179,6 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
         df['geometry'] = df.geometry.intersection(dem_extent)
 
     return df
-
 
 # Load shapefile or geojson
 def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
@@ -96,6 +235,7 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
     vtk_row = []
     for (key,value) in items.items():
         #print (key,value)
+        components = 1
         # define attribute as array
         if isinstance(value, (BaseMultipartGeometry)):
             #print ('BaseMultipartGeometry')
@@ -103,6 +243,9 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
         elif isinstance(value, (BaseGeometry)):
             #print ('BaseGeometry')
             continue
+        elif isinstance(value, (tuple)):
+            vtk_arr = vtkFloatArray()
+            components = len(value)
         elif isinstance(value, (int)):
             vtk_arr = vtkIntArray()
         elif isinstance(value, (float)):
@@ -114,126 +257,10 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
             value = _str(value)
             vtk_arr = vtkStringArray()
 
-        vtk_arr.SetNumberOfComponents(1)
+        vtk_arr.SetNumberOfComponents(components)
         vtk_arr.SetName(key)
         vtk_row.append((vtk_arr, value))
     return vtk_row
-
-# process [multi]geometry
-def _NCubeGeometryToPolyData(geometry, dem=None):
-    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
-    from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-    import xarray as xr
-    import numpy as np
-
-    vtk_points = vtkPoints()
-    vtk_cells = vtkCellArray()
-    # get part(s) of (multi)geometry
-    if isinstance(geometry, (BaseMultipartGeometry)):
-        geometries = [geom for geom in geometry]
-    else:
-        geometries = [geometry]
-    for geom in geometries:
-        #coords = geom.coords
-        coords = geom.exterior.coords
-        xs = np.array(coords.xy[0])
-        ys = np.array(coords.xy[1])
-        if len(coords.xy) > 2:
-            zs = np.array(coords.xy[2])
-        else:
-            zs = np.array([0]*len(xs))
-        #print (xs)
-        # rasterize geometries as lines
-        if dem is not None:
-#            print (dem)
-            zs = dem.sel(x=xr.DataArray(xs), y=xr.DataArray(ys), method='nearest').values
-        #print ("xs", xs)
-        mask = np.where(~np.isnan(zs))[0]
-        mask2 = np.where(np.diff(mask)!=1)[0]+1
-        xs = np.split(xs[mask], mask2)
-        ys = np.split(ys[mask], mask2)
-        zs = np.split(zs[mask], mask2)
-        for (_xs,_ys,_zs) in zip(xs,ys,zs):
-            # need to have 2 point or more
-            if len(_xs) <= 1:
-                continue
-            vtk_cells.InsertNextCell(len(_xs))
-            for (x,y,z) in zip(_xs,_ys,_zs):
-                pointId = vtk_points.InsertNextPoint(x, y, z)
-                vtk_cells.InsertCellPoint(pointId)
-
-    # not enougth valid points
-    if vtk_points.GetNumberOfPoints() < 2:
-        return
-
-    #print ("GetNumberOfPoints", vtk_points.GetNumberOfPoints())
-    vtk_polyData = vtkPolyData()
-    vtk_polyData.SetPoints(vtk_points)
-    if geometry.type in ['Point','MultiPoint']:
-        vtk_polyData.SetVerts(vtk_cells)
-    else:
-        vtk_polyData.SetLines(vtk_cells)
-
-    return vtk_polyData
-
-# process geodataframe and xarray raster
-def _NCubeGeometryOnTopography(df, dem):
-    from vtk import vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
-    from shapely.geometry import box
-    #import xarray as xr
-    import numpy as np
-
-    #print ("_NCUBEGeometryOnTopography start")
-
-    dem_extent = dem_crs = None
-    if dem is not None:
-        dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
-        dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
-        #print (dem.values)
-        df = _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs)
-
-    groups = df.index.unique() ;#[11454:11455]
-    #print ("groups",groups)
-
-    # TEST
-#    groups = groups[:1]
-
-    # iterate blocks
-    vtk_blocks = []
-    for group in groups:
-        #print ("group",group)
-        # Python 2 string issue wrapped
-        if hasattr(group, 'encode'):
-            # select only equals
-            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)].reset_index()
-        else:
-            _df = df[df.index == group].reset_index()
-        vtk_appendPolyData = vtkAppendPolyData()
-        # iterate rows with the same attributes and maybe multiple geometries
-        for rowidx,row in _df.iterrows():
-            vtk_polyData = _NCubeGeometryToPolyData(row.geometry, dem)
-            if vtk_polyData is None:
-                continue
-            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays(row.to_dict())
-            for (vtk_arr, val) in vtk_arrays:
-                for _ in range(vtk_polyData.GetNumberOfCells()):
-                    vtk_arr.InsertNextValue(val)
-                vtk_polyData.GetCellData().AddArray(vtk_arr)
-            # compose vtkPolyData
-            vtk_appendPolyData.AddInputData(vtk_polyData)
-        # nothing to process
-        if vtk_appendPolyData.GetNumberOfInputConnections(0) == 0:
-            continue
-        vtk_appendPolyData.Update()
-        vtk_block = vtk_appendPolyData.GetOutput()
-
-        vtk_blocks.append((_str(group),vtk_block))
-
-    #print ("_NCUBEGeometryOnTopography end")
-
-    return vtk_blocks
-
 
 # TODO
 # df.loc[0,'geometry']
@@ -335,7 +362,7 @@ def _NCubeTopography(dem, df):
             continue
         vtk_append.Update()
         vtk_block = vtk_append.GetOutput()
-        vtk_blocks.append((_str(group),vtk_block))
+        vtk_blocks.append((str(group),vtk_block))
 
     print ("_NCubeTopography end")
 
@@ -371,4 +398,3 @@ def _NCubeDataSetToGeoDataFrame(vtk_data):
 
         print (gdf.head())
         return gdf
-

@@ -4,9 +4,13 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+
 from paraview.util.vtkAlgorithm import * 
 
-from NCube import _str, _NCubeGeoDataFrameLoad, _NCubeTopography, _NCubeTopographyToGrid
+from NCube import _NCubeGeoDataFrameLoad, _NCubeTopography, _NCubeTopographyToGrid
 
 # this import is required to fix the issue: https://github.com/Toblerity/Shapely/issues/553
 from shapely.geometry import box
@@ -55,7 +59,7 @@ class NCubeTopographyBlockSource(VTKPythonAlgorithmBase):
             #dem.values[dem.values == dem.nodatavals[0]] = np.nan
             vtk_ugrid = _NCubeTopographyToGrid(dem)
             #print ("vtk_ugrid",vtk_ugrid)
-            vtk_blocks = [(_str('None'),vtk_ugrid)]
+            vtk_blocks = [(str('None'),vtk_ugrid)]
         else:
             # open raster
             dem = rasterio.open(self._toponame)

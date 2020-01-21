@@ -4,14 +4,6 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
-# -*- coding: utf-8 -*-
-# Copyright (c) 2020 Alexey Pechnikov. All rights reserved.
-# https://orcid.org/0000-0001-9626-8615 (ORCID)
-# pechnikov@mobigroup.ru (email)
-# License: http://opensource.org/licenses/MIT
-# See
-# https://github.com/Toblerity/Shapely/issues/553
-
 import sys
 import os
 sys.path.append(os.path.dirname(__file__))
