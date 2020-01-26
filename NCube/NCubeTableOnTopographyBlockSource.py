@@ -68,7 +68,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         # if it's defined, create segment, overwise ?only create point with vector
         self._lengthcol = None
         self._lengthunit = 'm' ;# required
-#        self._vectorname = 'vector'
+        self._vectorname = 'vector'
 
 
     def RequestData(self, request, inInfo, outInfo):
@@ -157,9 +157,9 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             dy = np.round(length*np.sin(phi)*np.sin(theta),10)
             dz = np.round(length*np.cos(phi),10)
             # self._x+row.dx, self._y+row.dy, self._z+row.dz
-            df['vector'] = [(0,0,0) if np.any(np.isnan(v)) else v for v in zip(dx,dy,dz)]
+            df[self._vectorname] = [(0,0,0) if np.any(np.isnan(v)) else v for v in zip(dx,dy,dz)]
 
-            print (df.head()['vector'])
+            print (df.head()[self._vectorname])
 #        # create vector or line geometry
 #        if self._lengthcol is None:
 #            # create point geometry
@@ -461,6 +461,12 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
     def SetDirectionDipInvert(self, value):
         print ("DirectionDipInvert", value)
         self._dipinvert = value
+        self.Modified()
+
+    @smproperty.stringvector(name="DirectionVector", default_values="vector")
+    def SetDirectionVectorName(self, vname):
+        print("SetDirectionVectorName ", vname)
+        self._vectorname = vname
         self.Modified()
 
 #    @smproperty.intvector(name="Depth Invert", default_values=0, panel_visibility="advanced")
