@@ -4,6 +4,10 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+
 from paraview.util.vtkAlgorithm import * 
 from NCube import _NCubeGeoDataFrameLoad, _NCubeGeometryOnTopography
 
@@ -11,6 +15,7 @@ import xarray as xr
 import numpy as np
 import geopandas as gpd
 from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+from shapely.ops import transform
 import time
 
 #------------------------------------------------------------------------------
@@ -29,6 +34,7 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         self._shapeencoding = None
         self._shapecol = None
         self._toponame = None
+        self._ignorez = False
 
 
     def RequestData(self, request, inInfo, outInfo):
@@ -39,15 +45,18 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         df = _NCubeGeoDataFrameLoad(self._shapename, self._shapecol, self._shapeencoding)
         if df is None:
             return
+        if self._ignorez:
+            df['geometry'] = df.geometry.apply(lambda geom: transform(lambda x, y, z=None: (x, y), geom))
 
         # load DEM
         dem = None
         if self._toponame is not None:
             #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
             dem = xr.open_rasterio(self._toponame).squeeze()
+            if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
+                dem.values = dem.values.astype("float32")
             # dask array can't be processed by this way
             dem.values[dem.values == dem.nodatavals[0]] = np.nan
-
             # NaN border to easy lookup
             dem.values[0,:]  = np.nan
             dem.values[-1,:] = np.nan
@@ -75,7 +84,7 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
         return 1
 
-    @smproperty.stringvector(name="Shapefile Name")
+    @smproperty.stringvector(name="ShapefileName")
     @smdomain.filelist()
     @smhint.filechooser(extensions=["shp", "geojson"], file_description="ESRI Shapefile, GeoJSON")
     def SetShapeFileName(self, name):
@@ -125,3 +134,18 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print("SetShapeLabel ", label)
         self.Modified()
 
+    @smproperty.xml("""
+        <IntVectorProperty name="ZIgnore"
+                       command="SetShapeFileZIgnore"
+                       number_of_elements="1"
+                       default_values="0">
+        <BooleanDomain name="bool" />
+        <Documentation>
+            Ignore Z coordinate in 3D shapefiles.
+        </Documentation>
+        </IntVectorProperty>
+    """)
+    def SetShapeFileZIgnore(self, value):
+        print ("SetShapeFileZIgnore", value)
+        self._ignorez = value
+        self.Modified()
