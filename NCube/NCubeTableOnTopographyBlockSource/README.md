@@ -12,3 +12,4 @@ wget ftp://datapub.gfz-potsdam.de/download/10.5880.WSM.2016.001/wsm2016.csv
 iconv -t utf8//IGNORE wsm2016.csv > wsm2016.utf8.csv 
 ```
 <img src="MoshaFault.jpg" width="50%" alt="MoshaFault"/>
+<img src="RinjaniTambora.jpg" width="50%" alt="RinjaniTambora"/>
