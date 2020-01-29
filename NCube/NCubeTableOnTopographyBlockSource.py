@@ -10,8 +10,6 @@ sys.path.append(os.path.dirname(__file__))
 
 from paraview.util.vtkAlgorithm import * 
 
-#from NCube import _NCubeGeoDataFrameToTopography, _NCubeGeometryOnTopography
-#from NCube import _str, _NCubeGeoDataFrameToTopography, _NCubeGeoDataFrameRowToVTKArrays
 from NCube import _NCubeGeometryOnTopography
 
 import xarray as xr
@@ -86,15 +84,15 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
             dem = xr.open_rasterio(self._toponame).squeeze()
             # dask array can't be processed by this way
-            #print ("dem.nodatavals",np.dtype(type(dem.nodatavals[0]))==np.dtype('float'),dem.values.dtype==np.dtype('int'))
-            if dem.values.dtype==np.dtype('float'):
-                dem.values[dem.values == dem.nodatavals[0]] = np.nan
-                # NaN border to easy lookup
-                dem.values[0,:]  = np.nan
-                dem.values[-1,:] = np.nan
-                dem.values[:,0]  = np.nan
-                dem.values[:,-1] = np.nan
-
+            #print ("dem.nodatavals", dem.values.dtype, dem.values.dtype==np.dtype('float'))
+            if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
+                dem.values = dem.values.astype("float32")
+            dem.values[dem.values == dem.nodatavals[0]] = np.nan
+            # NaN border to easy lookup
+            dem.values[0,:]  = np.nan
+            dem.values[-1,:] = np.nan
+            dem.values[:,0]  = np.nan
+            dem.values[:,-1] = np.nan
 #            print (dem)
 #            return 1
 
