@@ -181,10 +181,10 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
     if dem_extent is not None:
         df = df[df.geometry.intersects(dem_extent)]
         # wrap issue with 3D geometry intersection by 2D extent
-        if df.geometry[0].has_z:
-            print ("df.geometry[0].has_z")
-        else:
-            df['geometry'] = df.geometry.intersection(dem_extent)
+#        if df.geometry[0].has_z:
+#            print ("df.geometry[0].has_z")
+#        else:
+#            df['geometry'] = df.geometry.intersection(dem_extent)
 
     return df
 
