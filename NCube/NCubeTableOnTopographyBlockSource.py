@@ -19,10 +19,10 @@ import numpy as np
 import geopandas as gpd
 import pandas as pd
 from shapely.geometry import box, Point, LineString
+from shapely.affinity import translate
 from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
 import math
 import time
-
 
 #------------------------------------------------------------------------------
 # N-Cube Table On Topography Block Source
@@ -73,6 +73,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
     def RequestData(self, request, inInfo, outInfo):
 
+        # check mandatory fields
         if self._tablename is None or self._xcol is None or self._ycol is None:
             return 1
 
@@ -85,13 +86,17 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
             dem = xr.open_rasterio(self._toponame).squeeze()
             # dask array can't be processed by this way
-            dem.values[dem.values == dem.nodatavals[0]] = np.nan
+            #print ("dem.nodatavals",np.dtype(type(dem.nodatavals[0]))==np.dtype('float'),dem.values.dtype==np.dtype('int'))
+            if dem.values.dtype==np.dtype('float'):
+                dem.values[dem.values == dem.nodatavals[0]] = np.nan
+                # NaN border to easy lookup
+                dem.values[0,:]  = np.nan
+                dem.values[-1,:] = np.nan
+                dem.values[:,0]  = np.nan
+                dem.values[:,-1] = np.nan
 
-            # NaN border to easy lookup
-            dem.values[0,:]  = np.nan
-            dem.values[-1,:] = np.nan
-            dem.values[:,0]  = np.nan
-            dem.values[:,-1] = np.nan
+#            print (dem)
+#            return 1
 
             #dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
             #dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
@@ -108,10 +113,10 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print ("len(df)",len(df))
         if (len(df)) == 0:
             return
-        
+
         # TODO
-        
-        # create point geometry if Length Field is not defined
+
+        # calculate coordinates
         xs = df[self._xcol]
         ys = df[self._ycol]
         zs = len(df)*[0]
@@ -119,7 +124,61 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             zscale = self._scaleunits[self._zunit]
             zs = (1 if self._zinvert == 0 else -1)*zscale*df[self._zcol]
 
+        # length for unit vector or geometry line
+        if self._lengthcol is None:
+            #length = len(df)*[lengthscale]
+            # define length for unit vector
+            length = 1
+        else:
+            lengthscale = self._scaleunits[self._lengthunit]
+            length = lengthscale*df[self._lengthcol]
+        #print ("length",length[:5] if isinstance(length,list) else length)
+
+        # we can't define default direction because it could be up or down equally likely
+        if self._azcol is not None:
+            #and self._dipcol is not None:
+            # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
+            # https://en.wikipedia.org/wiki/Spherical_coordinate_system
+            # Spherical coordinates (r, θ, φ) as often used in mathematics:
+            # radial distance r, azimuthal angle θ, and polar angle φ.
+            theta = 1./2*math.pi - math.pi*df[self._azcol]/180
+        else:
+            theta = None
+        #print ("theta",theta[:5] if isinstance(theta,list) else theta)
+
+        # default dip value is zero, that does not create uncertainty
+        if self._dipcol is not None and self._dipinvert == 0:
+            # 1 for wells (dip<0)
+            phi = math.pi*(90 - df[self._dipcol])/180
+        elif self._dipcol is not None and self._dipinvert == 1:
+            # -1 for WSM (dip>0)
+            phi = math.pi*(90 + df[self._dipcol])/180
+        else:
+            # assume here that dip=0
+            phi = len(df)*[math.pi/2]
+        #print ("phi",phi[:5] if isinstance(phi,list) else phi)
+
+        # calculate offsets if we have defined polar angles and length
+        if theta is not None:
+            dx = np.round(np.sin(phi)*np.cos(theta),10)
+            dy = np.round(np.sin(phi)*np.sin(theta),10)
+            dz = np.round(np.cos(phi),10)
+            # self._x+row.dx, self._y+row.dy, self._z+row.dz
+            df[self._vectorname] = [(0,0,0) if np.any(np.isnan(v)) else v for v in zip(dx,dy,dz)]
+            #print (df.head(10)[self._vectorname])
+
+        # create point
         geom = gpd.GeoSeries(map(Point, zip(xs, ys, zs)))
+        # create line segment when possible
+        if self._azcol is not None and self._lengthcol is not None:
+            # get 1st point projected on raster
+            #geom1 = df.geometry.values
+            #print (geom1)
+            # create 2nd point
+            _geom = [translate(point,dx,dy,dz) for (point,dx,dy,dz) in zip(geom,length*dx,length*dy,length*dz)]
+            # create line segment
+            geom = gpd.GeoSeries(map(LineString, zip(geom,_geom)))
+        # add geometry
         crs = {'init' : 'epsg:'+str(self._epsg)} if self._epsg != 0 else None
         print ("crs", crs)
         # crs initialization doesn't work here for Python 2
@@ -129,37 +188,8 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print ("df.crs", df.crs)
         # create line segment if Length Field is defined
 
-        # length for unit vector or geometry line
-        lengthscale = self._scaleunits[self._lengthunit]
-        if self._lengthcol is None:
-            length = len(df)*[lengthscale]
-        else:
-            length = lengthscale*df[self._lengthcol]
+        # gpd.GeoSeries(map(LineString, zip(points,points)))
 
-        print ("length",length[:5])
-        if self._azcol is not None:
-            #and self._dipcol is not None:
-            # https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/vtkMultiblockDataSet.md
-            # https://en.wikipedia.org/wiki/Spherical_coordinate_system
-            # Spherical coordinates (r, θ, φ) as often used in mathematics:
-            # radial distance r, azimuthal angle θ, and polar angle φ.
-            theta = 1./2*math.pi - math.pi*df[self._azcol]/180
-            if self._dipcol is not None:
-                if self._dipinvert == 0:
-                    # 1 for wells (dip<0)
-                    phi = math.pi*(90 - df[self._dipcol])/180
-                else:
-                    # -1 for WSM (dip>0)
-                    phi = math.pi*(90 + df[self._dipcol])/180
-            else:
-                phi = len(df)*[math.pi/2]
-            dx = np.round(length*np.sin(phi)*np.cos(theta),10)
-            dy = np.round(length*np.sin(phi)*np.sin(theta),10)
-            dz = np.round(length*np.cos(phi),10)
-            # self._x+row.dx, self._y+row.dy, self._z+row.dz
-            df[self._vectorname] = [(0,0,0) if np.any(np.isnan(v)) else v for v in zip(dx,dy,dz)]
-
-            print (df.head()[self._vectorname])
 #        # create vector or line geometry
 #        if self._lengthcol is None:
 #            # create point geometry
@@ -172,8 +202,10 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         # group to multiblock
         if self._tablecol is not None:
             df = df.sort_values(self._tablecol).set_index(self._tablecol)
-        print (df.head())
+        #print ([g.wkt for g in df.head(10).geometry.values])
 
+
+        print ("XYZ",len(df))
         vtk_blocks = _NCubeGeometryOnTopography(df, dem)
         if len(vtk_blocks)>0:
             print ("vtk_blocks", len(vtk_blocks))
@@ -336,7 +368,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
     def SetTopZInvert(self, value):
         print ("SetTopZInvert", value)
         self._zinvert = value
-        #self.Modified()
+        self.Modified()
 
     @smproperty.stringvector(name="TopElevationUnit", number_of_elements="1")
     @smdomain.xml(\

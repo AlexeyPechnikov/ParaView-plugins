@@ -19,6 +19,9 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
     import xarray as xr
     import numpy as np
 
+    if geometry is None or geometry.is_empty:
+        return
+
     vtk_points = vtkPoints()
     vtk_cells = vtkCellArray()
     # get part(s) of (multi)geometry
@@ -34,12 +37,13 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
             coords = np.asarray(geom.exterior.coords)
         else:
             coords = np.asarray(geom.coords)
+        #print ("coords", coords)
         xs = coords[:,0]
         ys = coords[:,1]
         if coords.shape[1] > 2:
             zs = np.array(coords[:,2])
         else:
-            zs = np.array([0]*len(xs))
+            zs = np.zeros(len(xs))
         #print (xs)
         # rasterize geometries as lines
         if dem is not None:
@@ -176,7 +180,11 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
     # let's assume the coordinate systems are the same
     if dem_extent is not None:
         df = df[df.geometry.intersects(dem_extent)]
-        df['geometry'] = df.geometry.intersection(dem_extent)
+        # wrap issue with 3D geometry intersection by 2D extent
+        if df.geometry[0].has_z:
+            print ("df.geometry[0].has_z")
+        else:
+            df['geometry'] = df.geometry.intersection(dem_extent)
 
     return df
 
@@ -367,34 +375,3 @@ def _NCubeTopography(dem, df):
     print ("_NCubeTopography end")
 
     return vtk_blocks
-
-
-def _NCubeDataSetToGeoDataFrame(vtk_data):
-        import pandas as pd
-        import geopandas as gpd
-        from shapely.geometry import Point, box
-        from vtk.util import numpy_support
-        # save all the points or only the boundaries
-        if vtk_data.GetNumberOfPoints() == 0 or vtk_data.GetNumberOfPoints() > 1e6:
-            # geometry is empty or it's too large (>1M points) - save only boundaries
-            (minx, maxx, miny, maxy, minz, maxz) = vtk_data.GetBounds()
-            geom = box(minx, miny, maxx, maxy)
-            gdf = gpd.GeoDataFrame([],geometry=[geom])
-        else:
-            # save all points with attributes
-            coords = vtk_data.GetPoints().GetData()
-            ncoords = numpy_support.vtk_to_numpy(coords)
-            df = pd.DataFrame(data=ncoords,columns=('x','y','z'))
-
-            for idx in range(vtk_data.GetPointData().GetNumberOfArrays()):
-                col = vtk_data.GetPointData().GetArrayName(idx)
-                values = vtk_data.GetPointData().GetArray(idx)
-                nvalues = numpy_support.vtk_to_numpy(values)
-                df[col] = nvalues
-
-            geom = gpd.GeoSeries(map(Point, zip(df.x, df.y, df.z)))
-            df.drop(['x', 'y'], axis=1, inplace=True)
-            gdf = gpd.GeoDataFrame(df, geometry=geom)
-
-        print (gdf.head())
-        return gdf
