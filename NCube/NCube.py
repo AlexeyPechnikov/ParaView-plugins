@@ -45,10 +45,34 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
         else:
             zs = np.zeros(len(xs))
         #print (xs)
-        # rasterize geometries as lines
+        # rasterize geometries (lines only, not points)
         if dem is not None:
 #            print (dem)
+            if dem.res and len(xs)>1:
+                res = min(dem.res)
+                _xs = [xs[:1]]
+                _ys = [ys[:1]]
+                _zs = [zs[:1]]
+                for (x0,y0,z0,x,y,z) in zip(xs[:-1],ys[:-1],zs[:-1],xs[1:],ys[1:],zs[1:]):
+                    length = max(abs(x-x0),abs(y-y0))
+                    num = round(length/res+0.5)
+#                    print ("num",num)
+                    if num > 1:
+                        _x = np.linspace(x0,x,num)
+                        _y = np.linspace(y0,y,num)
+                        _z = np.linspace(z0,z,num)
+                        _xs.append(_x[1:])
+                        _ys.append(_y[1:])
+                        _zs.append(_z[1:])
+                    else:
+                        _xs.append([x])
+                        _ys.append([y])
+                        _zs.append([z])
+                xs = np.concatenate(_xs)
+                ys = np.concatenate(_ys)
+                zs = np.concatenate(_zs)
             zs += dem.sel(x=xr.DataArray(xs), y=xr.DataArray(ys), method='nearest').values
+
         #print ("xs", xs)
         mask = np.where(~np.isnan(zs))[0]
         mask2 = np.where(np.diff(mask)!=1)[0]+1
