@@ -56,9 +56,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         self._zcol = None ;# optional - topography could be used instead
         self._zunit = 'm'
         self._zinvert = 0
-        # depth for earthquakes, etc.
-#        self._depthcol = None
-#        self._depthunit = 'm'
 
         self._azcol = None
         self._dipcol = None
@@ -93,26 +90,12 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             dem.values[-1,:] = np.nan
             dem.values[:,0]  = np.nan
             dem.values[:,-1] = np.nan
-#            print (dem)
-#            return 1
 
-            #dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
-            #dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
-
-            #print (dem.values)
-
-#        df = _NCubeDataFrameLoad(self._tablename, self._tablecol,
-#            self._xcol, self._ycol, self._zcol, self._zunit,
-#            self._tableencoding)
-#        if df is None:
-#            return
 
         df = pd.read_csv(self._tablename, encoding=self._tableencoding, low_memory=False)
         print ("len(df)",len(df))
         if (len(df)) == 0:
             return
-
-        # TODO
 
         # calculate coordinates
         xs = df[self._xcol]
@@ -124,7 +107,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
         # length for unit vector or geometry line
         if self._lengthcol is None:
-            #length = len(df)*[lengthscale]
             # define length for unit vector
             length = 1
         else:
@@ -169,41 +151,23 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         geom = gpd.GeoSeries(map(Point, zip(xs, ys, zs)))
         # create line segment when possible
         if self._azcol is not None and self._lengthcol is not None:
-            # get 1st point projected on raster
-            #geom1 = df.geometry.values
-            #print (geom1)
             # create 2nd point
             _geom = [translate(point,dx,dy,dz) for (point,dx,dy,dz) in zip(geom,length*dx,length*dy,length*dz)]
             # create line segment
             geom = gpd.GeoSeries(map(LineString, zip(geom,_geom)))
         # add geometry
         crs = {'init' : 'epsg:'+str(self._epsg)} if self._epsg != 0 else None
-        print ("crs", crs)
+        #print ("crs", crs)
         # crs initialization doesn't work here for Python 2
         df = gpd.GeoDataFrame(df, crs=crs, geometry=geom)
         # for Python 2 only
         df.crs = crs
-        print ("df.crs", df.crs)
-        # create line segment if Length Field is defined
-
-        # gpd.GeoSeries(map(LineString, zip(points,points)))
-
-#        # create vector or line geometry
-#        if self._lengthcol is None:
-#            # create point geometry
-#            # create vector
-#            if self._azcol is not None and self._dipcol is not None:
-#                pass
-#        else:
-#            # create line geometry
+        #print ("df.crs", df.crs)
 
         # group to multiblock
         if self._tablecol is not None:
             df = df.sort_values(self._tablecol).set_index(self._tablecol)
-        #print ([g.wkt for g in df.head(10).geometry.values])
 
-
-        print ("XYZ",len(df))
         vtk_blocks = _NCubeGeometryOnTopography(df, dem)
         if len(vtk_blocks)>0:
             print ("vtk_blocks", len(vtk_blocks))
@@ -222,7 +186,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         return 1
 
 
-################
     @smproperty.stringvector(name="Units", information_only="1")
     def GetUnits(self):
         return ["m","km","ft","kft"]
@@ -248,8 +211,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         df = pd.read_csv(self._tablename, nrows=0)
         cols = sorted(df.columns.values)
         return ['None'] + list(map(str,cols))
-
-################
 
 
     @smproperty.stringvector(name="TableFile")
@@ -284,8 +245,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print("SetTableGroupBy", col)
         self.Modified()
 
-
-
     @smproperty.stringvector(name="Topography File")
     @smdomain.filelist()
     @smhint.filechooser(extensions=["tif", "TIF", "nc"], file_description="GeoTIFF, NetCDF")
@@ -305,10 +264,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._toponame != name:
             self._toponame = name
             self.Modified()
-
-
-
-
 
     @smproperty.stringvector(name="Top Easting", number_of_elements="1")
     @smdomain.xml(\
@@ -382,39 +337,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print("SetTopZUnit", unit)
         self.Modified()
 
-
-
-#    @smproperty.stringvector(name="*TopDepth", number_of_elements="1")
-#    @smdomain.xml(\
-#        """<StringListDomain name="list">
-#                <RequiredProperties>
-#                    <Property name="NumericColumns" function="GetNumericColumns"/>
-#                </RequiredProperties>
-#            </StringListDomain>
-#        """)
-#    def SetTopDepthColumn(self, col):
-#        col = col if col != 'None' else None
-#        self._depthcol = col
-#        print("SetTopDepthColumn", col)
-#        self.Modified()
-#
-#    @smproperty.stringvector(name="*TopDepthUnit", number_of_elements="1")
-#    @smdomain.xml(\
-#        """<StringListDomain name="list">
-#                <RequiredProperties>
-#                    <Property name="Units" function="GetUnits"/>
-#                </RequiredProperties>
-#            </StringListDomain>
-#        """)
-#    def SetTopDepthUnit(self, unit):
-#        self._depthunit = unit
-#        self._zunit = unit
-#        print("SetTopUnit", unit)
-#        self.Modified()
-
-
-
-
     @smproperty.stringvector(name="DirectionAzimuth", number_of_elements="1")
     @smdomain.xml(\
         """<StringListDomain name="list">
@@ -470,13 +392,6 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print("SetDirectionUnit", unit)
         self.Modified()
 
-#    @smproperty.intvector(name="Direction Dip Invert", default_values=0, documentation="xxx")
-#    @smdomain.xml("""<BooleanDomain name="bool"/>""")
-#    def SetDipInvert(self, value):
-#        print ("SetDipInvert", value)
-#        self._dipinvert = value
-#        #self.Modified()
-
     @smproperty.xml("""
         <IntVectorProperty name="DipInvert"
                        command="SetDirectionDipInvert"
@@ -498,25 +413,3 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         print("SetDirectionVectorName ", vname)
         self._vectorname = vname
         self.Modified()
-
-#    @smproperty.intvector(name="Depth Invert", default_values=0, panel_visibility="advanced")
-#    @smdomain.xml(\
-#        """<BooleanDomain name="bool"/>
-#        <Hints>
-#          <PropertyWidgetDecorator type="GenericDecorator"
-#                                   mode="visibility"
-#                                   property="Depth Unit"
-#                                   value="ft" />
-#        </Hints>
-#        """)
-#    def SetYYY(self, epsg):
-#        #epsg = epsg if epsg != 'None' and epsg != 0 else None
-#        print ("SetYYY", epsg)
-#        #self._epsg = epsg
-#        #self.Modified()
-
-#    @smproperty.stringvector(name="Output Vector", default_values='vector')
-#    def SetVectorName(self, name):
-#        print ("SetVectorName", name)
-#        self._vectorname = name
-#        self.Modified()
