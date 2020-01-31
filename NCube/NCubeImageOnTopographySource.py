@@ -11,13 +11,20 @@ def _NCubeImageOnTopographyToGrid(dem, image):
     from vtk.util import numpy_support as vn
     import numpy as np
 
-    # 1st band mask
-    mask = image[0].values/image[0].values
-    colors = image.values
+    # mask black and NaN areas
+    nanmask = (~np.any(np.isnan(image.values),axis=0)).astype(float)
+    # that's correct way
+    zeromask = (~np.all(image.values==0,axis=0)).astype(float)
+    # that's magic for better borders
+    zeromask = (~np.any(image.values==0,axis=0)).astype(float)
+    mask = nanmask*zeromask
+    mask[mask==0] = np.nan
 
     xs = dem.x.values
     ys = dem.y.values
     values = mask * dem.values
+
+    colors = np.round(image.values)
 
     # create raster mask by geometry and for NaNs
     (yy,xx) = np.meshgrid(ys, xs)
@@ -35,7 +42,6 @@ def _NCubeImageOnTopographyToGrid(dem, image):
     sgrid.GetPointData().AddArray(array)
 
     array = vn.numpy_to_vtk(colors.reshape(3,-1).T, deep=True, array_type=VTK_UNSIGNED_CHAR)
-    print (array)
     array.SetName("colors")
     sgrid.GetPointData().AddArray(array)
 
@@ -83,6 +89,7 @@ class NCubeImageOnTopographySource(VTKPythonAlgorithmBase):
         # load the full image raster
         image = xr.open_rasterio(self._imagename)
         image = image.interp_like(dem)
+        #dem = dem.interp_like(image)
 
         vtk_ugrid = _NCubeImageOnTopographyToGrid(dem, image)
 

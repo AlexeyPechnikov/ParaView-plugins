@@ -4,28 +4,14 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
+import sys
+import os
+sys.path.append(os.path.dirname(__file__))
+
 from paraview.util.vtkAlgorithm import * 
 
 from NCube import _NcubeDataFrameToVTKArrays
 
-from vtk import vtkDataObject
-from vtkmodules.vtkCommonDataModel import vtkTable
-from vtk.util import numpy_support
-from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
-import pandas as pd
-import numpy as np
-import lasio
-import math
-import time
-
-# TODO
-#@smproxy.source(name="NCUBEImageOnTopographySource",
-#       label="N-Cube Image On Topography Source")
-
-# To add a reader, we can use the following decorators
-#   @smproxy.source(name="PythonCSVReader", label="Python-based CSV Reader")
-#   @smhint.xml("""<ReaderFactory extensions="csv" file_description="Numpy CSV files" />""")
-# or directly use the "@reader" decorator.
 @smproxy.reader(name="NCubeLASReader", label="N-Cube LAS Well Log Reader",
                 extensions="las", file_description="LAS files")
 @smproperty.xml("""<OutputPort name="Header"     index="0" />""")
@@ -41,48 +27,27 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         self._az = 0
         self._dip = -90
 
-    @smproperty.stringvector(name="FileName")
-    @smdomain.filelist()
-    @smhint.filechooser(extensions="las", file_description="LAS Well Log files")
-    def SetFileName(self, name):
-        """Specify filename for the file to read."""
-        if self._filename != name:
-            self._filename = name
-            self.Modified()
-
-    @smproperty.doublevector(name="Location", default_values=[0, 0, 0])
-    @smdomain.doublerange()
-    def SetLocation(self, x, y, z):
-        self._x = x
-        self._y = y
-        self._z = z
-        self.Modified()
-
-    @smproperty.doublevector(name="Azimuth", default_values=0)
-    @smdomain.doublerange(min=0, max=360)
-    def SetAzimuth(self, az):
-        self._az = az
-        self.Modified()
-
-    @smproperty.doublevector(name="Dip", default_values=-90)
-    @smdomain.doublerange(min=-90, max=90)
-    def SetDip(self, dip):
-        self._dip = dip
-        self.Modified()
-
     def FillOutputPortInformation(self, port, info):
+        from vtk import vtkDataObject
         if port == 1:
             info.Set(vtkDataObject.DATA_TYPE_NAME(), "vtkPolyData")
         else:
             info.Set(vtkDataObject.DATA_TYPE_NAME(), "vtkTable")
         return 1
 
-
     def RequestData(self, request, inInfoVec, outInfoVec):
+        from vtkmodules.vtkCommonDataModel import vtkTable
+        from vtk.util import numpy_support
+        from vtk import vtkPolyData, vtkPoints, vtkCellArray, vtkFloatArray, VTK_FLOAT
+        import pandas as pd
+        import numpy as np
+        import lasio
+        import math
+        import time
 
         t0 = time.time()
         las = lasio.read(self._filename)
-        
+
         # DEPTH is index
         df_curves = las.df()
         headers = []
@@ -104,7 +69,6 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
 
         outputHeader = vtkTable.GetData(outInfoVec, 0)
         outputHeader.ShallowCopy(vtk_table_header)
-
 
         # define scale factor by depth units
         unit = las.curves[0]['unit']
@@ -156,3 +120,33 @@ class NCubeLASReader(VTKPythonAlgorithmBase):
         print ("t1-t0", t1-t0)
 
         return 1
+
+    @smproperty.stringvector(name="FileName")
+    @smdomain.filelist()
+    @smhint.filechooser(extensions="las", file_description="LAS Well Log files")
+    def SetFileName(self, name):
+        """Specify filename for the file to read."""
+        if self._filename != name:
+            self._filename = name
+            self.Modified()
+
+    @smproperty.doublevector(name="Location", default_values=[0, 0, 0])
+    @smdomain.doublerange()
+    def SetLocation(self, x, y, z):
+        self._x = x
+        self._y = y
+        self._z = z
+        self.Modified()
+
+    @smproperty.doublevector(name="Azimuth", default_values=0)
+    @smdomain.doublerange(min=0, max=360)
+    def SetAzimuth(self, az):
+        self._az = az
+        self.Modified()
+
+    @smproperty.doublevector(name="Dip", default_values=-90)
+    @smdomain.doublerange(min=-90, max=90)
+    def SetDip(self, dip):
+        self._dip = dip
+        self.Modified()
+

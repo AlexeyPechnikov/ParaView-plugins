@@ -46,6 +46,7 @@ def _NCubeGeometryToPolyData(geometry, dem=None):
             zs = np.zeros(len(xs))
         #print (xs)
         # rasterize geometries (lines only, not points)
+        # alas, modern scipy or matplotlib don't work in ParaView 5.7 on MacOS
         if dem is not None:
 #            print (dem)
             if dem.res and len(xs)>1:
@@ -114,6 +115,17 @@ def _NCubeGeometryOnTopography(df, dem):
 
     dem_extent = dem_crs = None
     if dem is not None:
+        # TODO: that's better to direct use NODATA values
+        if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
+            dem.values = dem.values.astype("float32")
+        # dask array can't be processed by this way
+        dem.values[dem.values == dem.nodatavals[0]] = np.nan
+        # NaN border to easy lookup
+        dem.values[0,:]  = np.nan
+        dem.values[-1,:] = np.nan
+        dem.values[:,0]  = np.nan
+        dem.values[:,-1] = np.nan
+
         dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
         dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
         #print (dem.values)
@@ -215,17 +227,14 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
 # Load shapefile or geojson
 def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
     import geopandas as gpd
-    #from functools import partial
-    #from shapely.ops import transform
-    
+
     df = gpd.read_file(shapename, encoding=shapeencoding)
-    # remove NULL geometries
-    df = df[df.geometry.notnull()]
-    if (len(df)) == 0:
-        return
+    #df = df[df.geometry.notnull()]
     if shapecol is not None:
         df = df.sort_values(shapecol).set_index(shapecol)
-    #print ("shapecol",shapecol)
+    else:
+        # to merge all geometries in output
+        df.index = len(df)*['None']
     return df
 
 def _NcubeDataFrameToVTKArrays(df):
@@ -294,108 +303,3 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
         vtk_row.append((vtk_arr, value))
     return vtk_row
 
-# TODO
-# df.loc[0,'geometry']
-def _NCubeTopographyToGrid(dem):
-    from vtk import vtkPoints, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT
-    from vtk.util import numpy_support as vn
-    import numpy as np
-
-    xs = dem.x.values
-    ys = dem.y.values
-    if dem.dims == ('y','x'):
-        values = dem.values
-    else:
-        values = dem.values.T
-
-    # create raster mask by geometry and for NaNs
-    (yy,xx) = np.meshgrid(ys, xs)
-    vtk_points = vtkPoints()
-    points = np.column_stack((xx.ravel('F'),yy.ravel('F'),values.ravel('C')))
-    _points = vn.numpy_to_vtk(points, deep=True)
-    vtk_points.SetData(_points)
-#    for (_x,_y,_z,_m) in zip(xx.ravel('F'),yy.ravel('F'),values.ravel('C'),mask.ravel('C')):
-#        vtk_points.InsertNextPoint(_x,_y, _z if _m else np.nan)
-
-    sgrid = vtkStructuredGrid()
-    sgrid.SetDimensions(len(xs), len(ys), 1)
-    sgrid.SetPoints(vtk_points)
-
-    array = vn.numpy_to_vtk(values.ravel(), deep=True, array_type=VTK_FLOAT)
-    array.SetName("z")
-    sgrid.GetPointData().AddArray(array)
-
-    thresh = vtkThreshold()
-    thresh.SetInputData(sgrid)
-    thresh.SetInputArrayToProcess(0, 0, 0, vtkDataObject.FIELD_ASSOCIATION_POINTS, "z")
-    thresh.ThresholdBetween(-1e30, 1e30)
-    thresh.Update()
-
-#    return sgrid
-    return thresh.GetOutput()
-
-# process rasterio dem object plus geodataframe
-def _NCubeTopography(dem, df):
-    from vtk import vtkAppendFilter
-    #vtkPoints, vtkCellArray, vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
-    from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
-    from shapely.geometry import box
-    import xarray as xr
-    import numpy as np
-    import rasterio.mask
-
-    print ("_NCubeTopography start")
-    #print (dem)
-    # prepare dem and geometries
-    #print (dem.crs, dem.bounds)
-    dem_crs = dem.crs.to_string() if dem.crs is not None else None
-    dem_extent = box(dem.bounds.left,dem.bounds.bottom,dem.bounds.right,dem.bounds.top)
-    df = _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs)
-
-    groups = df.index.unique()
-    #print ("groups",groups)
-
-    vtk_blocks = []
-    # iterate blocks
-    for group in groups:
-        #print ("group",group)
-        # Python 2 string issue wrapped
-        if hasattr(group, 'encode'):
-            geoms = df[df.index.str.match(group)].geometry
-        else:
-            geoms = df[df.index == group].geometry
-
-        vtk_append = vtkAppendFilter()
-        # rasterize geomemetry
-        try:
-            # use only 1st band from the raster
-            out_image, out_transform = rasterio.mask.mask(dem, geoms, indexes=1, crop=True, filled=True)
-        except:
-            # geometry outside of the raster, etc.
-            print (group, "exception")
-            continue
-        (xs, _) = rasterio.transform.xy(out_transform, out_image.shape[1]*[0], range(out_image.shape[1]), offset='center')
-        (_, ys) = rasterio.transform.xy(out_transform, range(out_image.shape[0]), out_image.shape[0]*[0], offset='center')
-        da = xr.DataArray(out_image, coords={'x': xs, 'y': ys}, dims=('y', 'x'))
-        # process rasterized geometry
-        vtk_ugrid = _NCubeTopographyToGrid(da)
-        if vtk_ugrid is None:
-            continue
-        if df.index is not None:
-            vtk_arrays = _NCubeGeoDataFrameRowToVTKArrays({df.index.name:group})
-            for (vtk_arr, val) in vtk_arrays:
-                for _ in range(vtk_ugrid.GetNumberOfCells()):
-                    vtk_arr.InsertNextValue(val)
-                vtk_ugrid.GetCellData().AddArray(vtk_arr)
-        # compose
-        vtk_append.AddInputData(vtk_ugrid)
-        # nothing to process
-        if vtk_append.GetNumberOfInputConnections(0) == 0:
-            continue
-        vtk_append.Update()
-        vtk_block = vtk_append.GetOutput()
-        vtk_blocks.append((str(group),vtk_block))
-
-    print ("_NCubeTopography end")
-
-    return vtk_blocks

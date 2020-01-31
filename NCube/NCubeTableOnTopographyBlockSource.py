@@ -12,16 +12,6 @@ from paraview.util.vtkAlgorithm import *
 
 from NCube import _NCubeGeometryOnTopography
 
-import xarray as xr
-import numpy as np
-import geopandas as gpd
-import pandas as pd
-from shapely.geometry import box, Point, LineString
-from shapely.affinity import translate
-from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
-import math
-import time
-
 #------------------------------------------------------------------------------
 # N-Cube Table On Topography Block Source
 #
@@ -67,6 +57,15 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
+        import xarray as xr
+        import numpy as np
+        import geopandas as gpd
+        import pandas as pd
+        from shapely.geometry import box, Point, LineString
+        from shapely.affinity import translate
+        from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+        import math
+        import time
 
         # check mandatory fields
         if self._tablename is None or self._xcol is None or self._ycol is None:
@@ -76,21 +75,9 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         #df = pd.read_csv(self._tablename, low_memory=False)
 
         # load DEM
-        dem = dem_extent = dem_crs = None
+        dem = None
         if self._toponame is not None:
-            #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
             dem = xr.open_rasterio(self._toponame).squeeze()
-            # dask array can't be processed by this way
-            #print ("dem.nodatavals", dem.values.dtype, dem.values.dtype==np.dtype('float'))
-            if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
-                dem.values = dem.values.astype("float32")
-            dem.values[dem.values == dem.nodatavals[0]] = np.nan
-            # NaN border to easy lookup
-            dem.values[0,:]  = np.nan
-            dem.values[-1,:] = np.nan
-            dem.values[:,0]  = np.nan
-            dem.values[:,-1] = np.nan
-
 
         df = pd.read_csv(self._tablename, encoding=self._tableencoding, low_memory=False)
         print ("len(df)",len(df))
@@ -193,6 +180,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
     # possible coordinate columns
     @smproperty.stringvector(name="NumericColumns", information_only="1")
     def GetNumericColumns(self):
+        import pandas as pd
         print ("GetNumericColumns")
         if self._tablename is None:
             return []
@@ -205,6 +193,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
     # Multiblock labels
     @smproperty.stringvector(name="Columns", information_only="1")
     def GetColumns(self):
+        import pandas as pd
         if self._tablename is None:
             return []
         # Load file

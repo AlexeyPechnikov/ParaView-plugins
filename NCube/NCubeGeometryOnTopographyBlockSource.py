@@ -8,15 +8,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(__file__))
 
-from paraview.util.vtkAlgorithm import * 
+from paraview.util.vtkAlgorithm import *
 from NCube import _NCubeGeoDataFrameLoad, _NCubeGeometryOnTopography
-
-import xarray as xr
-import numpy as np
-import geopandas as gpd
-from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
-from shapely.ops import transform
-import time
 
 #------------------------------------------------------------------------------
 # N-Cube Shapefile On Topography Block Source
@@ -38,6 +31,12 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
 
     def RequestData(self, request, inInfo, outInfo):
+        import xarray as xr
+        import numpy as np
+        import geopandas as gpd
+        from vtk import vtkPolyData, vtkAppendPolyData, vtkCompositeDataSet, vtkMultiBlockDataSet
+        from shapely.ops import transform
+        import time
 
         if self._shapename is None:
             return 1
@@ -53,16 +52,6 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._toponame is not None:
             #dem = xr.open_rasterio(toponame, chunks=10000000).squeeze()
             dem = xr.open_rasterio(self._toponame).squeeze()
-            if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
-                dem.values = dem.values.astype("float32")
-            # dask array can't be processed by this way
-            dem.values[dem.values == dem.nodatavals[0]] = np.nan
-            # NaN border to easy lookup
-            dem.values[0,:]  = np.nan
-            dem.values[-1,:] = np.nan
-            dem.values[:,0]  = np.nan
-            dem.values[:,-1] = np.nan
-
 
         t0 = time.time()
         vtk_blocks = _NCubeGeometryOnTopography(df, dem)
@@ -109,6 +98,8 @@ class NCubeGeometryOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
     @smproperty.stringvector(name="ShapeLabels", information_only="1")
     def ShapeLabels(self):
+        import geopandas as gpd
+
         if self._shapename is None:
             return []
         # Load shapefile
