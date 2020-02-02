@@ -67,6 +67,7 @@ class NCubeImageOnTopographySource(VTKPythonAlgorithmBase):
                 outputType='vtkUnstructuredGrid')
         self._imagename = None
         self._toponame = None
+        self._usesealevel = 0
 
 
     def RequestData(self, request, inInfo, outInfo):
@@ -85,6 +86,8 @@ class NCubeImageOnTopographySource(VTKPythonAlgorithmBase):
         if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
             dem.values = dem.values.astype("float32")
         dem.values[dem.values == dem.nodatavals[0]] = np.nan
+        if self._usesealevel:
+            dem.values[dem.values <= 0] = 0
 
         # load the full image raster
         image = xr.open_rasterio(self._imagename)
@@ -122,3 +125,19 @@ class NCubeImageOnTopographySource(VTKPythonAlgorithmBase):
         if self._toponame != name:
             self._toponame = name
             self.Modified()
+
+    @smproperty.xml("""
+        <IntVectorProperty name="TopographySeaLevel"
+                       command="SetTopographySeaLevel"
+                       number_of_elements="1"
+                       default_values="0">
+        <BooleanDomain name="bool" />
+        <Documentation>
+            Use this checkbox to replace topography below zero level by zero.
+        </Documentation>
+        </IntVectorProperty>
+    """)
+    def SetTopographySeaLevel(self, value):
+        print ("TopographySeaLevel", value)
+        self._usesealevel = value
+        self.Modified()
