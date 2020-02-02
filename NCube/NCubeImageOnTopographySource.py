@@ -127,13 +127,13 @@ class NCubeImageOnTopographySource(VTKPythonAlgorithmBase):
             self.Modified()
 
     @smproperty.xml("""
-        <IntVectorProperty name="TopographySeaLevel"
+        <IntVectorProperty name="Use Sea Level For Negative Topography"
                        command="SetTopographySeaLevel"
                        number_of_elements="1"
                        default_values="0">
         <BooleanDomain name="bool" />
         <Documentation>
-            Use this checkbox to replace topography below zero level by zero.
+            Use this checkbox to replace negative topography by sea level.
         </Documentation>
         </IntVectorProperty>
     """)
