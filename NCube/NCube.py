@@ -229,7 +229,8 @@ def _NCubeGeoDataFrameLoad(shapename, shapecol=None, shapeencoding=None):
     import geopandas as gpd
 
     df = gpd.read_file(shapename, encoding=shapeencoding)
-    #df = df[df.geometry.notnull()]
+    # very important check
+    df = df[df.geometry.notnull()]
     if shapecol is not None:
         df = df.sort_values(shapecol).set_index(shapecol)
     else:
