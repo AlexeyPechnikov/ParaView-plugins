@@ -9,6 +9,7 @@ def _str(text):
     import sys
     # fix string issue for Python 2
     if sys.version_info < (3, 0) and hasattr(text, 'encode'):
+        # text.encode('ascii','ignore') || 'replace'
         return text.encode('utf-8')
     return str(text)
 
@@ -144,7 +145,7 @@ def _NCubeGeometryOnTopography(df, dem):
         # Python 2 string issue wrapped
         if hasattr(group, 'encode'):
             # select only equals
-            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)].reset_index()
+            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)&(df.index.str.len()==len(group))].reset_index()
         else:
             _df = df[df.index == group].reset_index()
         #print (_df.geometry)
@@ -269,6 +270,8 @@ def _NcubeDataFrameToVTKArrays(df):
     return arrays
 
 # list of list of VtkArray's
+# we ignore case of scientific notation for numbers
+# https://re-thought.com/how-to-suppress-scientific-notation-in-pandas/
 def _NCubeGeoDataFrameRowToVTKArrays(items):
     #vtkPolyData, vtkAppendPolyData, vtkPoints, vtkCellArray, 
     from vtk import vtkStringArray, vtkIntArray, vtkFloatArray, vtkBitArray
@@ -286,13 +289,21 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
             #print ('BaseGeometry')
             continue
         elif isinstance(value, (tuple)):
+            #print ('vtkFloatArray')
             vtk_arr = vtkFloatArray()
             components = len(value)
-        elif isinstance(value, (int)):
+        elif isinstance(value, (int)) or (type(value)==str and value.replace('-','',1).isdigit()):
+            # ParaView category editor converts strings to numeric when it's possible
+            #print('vtkIntArray')
+            value = int(value)
             vtk_arr = vtkIntArray()
-        elif isinstance(value, (float)):
+        elif isinstance(value, (float)) or (type(value)==str and value.replace('-','',1).replace('.','',1).isdigit()):
+            # ParaView category editor converts strings to numeric when it's possible
+            #print ('vtkFloatArray')
+            value = float(value)
             vtk_arr = vtkFloatArray()
         elif isinstance(value, (bool)):
+            #print ('vtkBitArray')
             vtk_arr = vtkBitArray()
         else:
             # some different datatypes could be saved as strings
