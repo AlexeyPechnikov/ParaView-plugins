@@ -7,7 +7,6 @@
 from paraview.util.vtkAlgorithm import * 
 from vtkmodules.vtkCommonDataModel import vtkDataSet
 
-#from NCube import _NCubeDataSetToGeoDataFrame
 def _NCubeDataSetToGeoDataFrame(vtk_data, extent_only=False):
     import pandas as pd
     import geopandas as gpd
@@ -41,10 +40,8 @@ def _NCubeDataSetToGeoDataFrame(vtk_data, extent_only=False):
 
 #------------------------------------------------------------------------------
 # N-Cube DataSet to Shapefile Writer
-# N-Cube DataSet to GeoPackage Writer
 #------------------------------------------------------------------------------
 @smproxy.writer(extensions="shp", file_description="ESRI Shapefile", support_reload=False)
-#@smproxy.writer(extensions="gpkg", file_description="GeoPackage", support_reload=False)
 @smproperty.input(name="Input", port_index=0)
 @smdomain.datatype(dataTypes=["vtkDataSet"], composite_data_supported=False)
 class NCubeShapefileWriter(VTKPythonAlgorithmBase):
@@ -61,22 +58,23 @@ class NCubeShapefileWriter(VTKPythonAlgorithmBase):
             self.Modified()
 
     def RequestData(self, request, inInfoVec, outInfoVec):
+        print ("NCubeShapefileWriter")
         vtk_data = vtkDataSet.GetData(inInfoVec[0], 0)
         gdf = _NCubeDataSetToGeoDataFrame(vtk_data)
         gdf.to_file(filename=self._filename)
-        #gdf.to_file(filename=self._filename, layer="vtk", driver="GPKG")
-
         return 1
 
     def Write(self):
         self.Modified()
         self.Update()
 
-@smproxy.writer(extensions="shp", file_description="ESRI Shapefile - Extent only", support_reload=False)
-#@smproxy.writer(extensions="gpkg", file_description="GeoPackage", support_reload=False)
+#------------------------------------------------------------------------------
+# N-Cube DataSet to GeoPackage Writer
+#------------------------------------------------------------------------------
+@smproxy.writer(extensions="gpkg", file_description="GeoPackage - Extent only", support_reload=False)
 @smproperty.input(name="Input", port_index=0)
 @smdomain.datatype(dataTypes=["vtkDataSet"], composite_data_supported=False)
-class NCubeShapefileWriter2(VTKPythonAlgorithmBase):
+class NCubeGeoPackageWriter(VTKPythonAlgorithmBase):
     def __init__(self):
         VTKPythonAlgorithmBase.__init__(self, nInputPorts=1, nOutputPorts=0, inputType='vtkDataSet')
         self._filename = None
@@ -90,14 +88,12 @@ class NCubeShapefileWriter2(VTKPythonAlgorithmBase):
             self.Modified()
 
     def RequestData(self, request, inInfoVec, outInfoVec):
+        print ("NCubeGeoPackageWriter")
         vtk_data = vtkDataSet.GetData(inInfoVec[0], 0)
         gdf = _NCubeDataSetToGeoDataFrame(vtk_data, extent_only=True)
-        gdf.to_file(filename=self._filename)
-        #gdf.to_file(filename=self._filename, layer="vtk", driver="GPKG")
-
+        gdf.to_file(filename=self._filename, layer="vtk", driver="GPKG")
         return 1
 
     def Write(self):
         self.Modified()
         self.Update()
-
