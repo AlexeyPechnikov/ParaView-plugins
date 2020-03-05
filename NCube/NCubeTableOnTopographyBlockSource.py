@@ -46,6 +46,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         self._zcol = None ;# optional - topography could be used instead
         self._zunit = 'm'
         self._zinvert = 0
+        self._zignore = 0
 
         self._azcol = None
         self._dipcol = None
@@ -78,8 +79,11 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         dem = None
         if self._toponame is not None:
             dem = xr.open_rasterio(self._toponame).squeeze()
+            if self._zignore:
+                dem.values = 0*dem.values
 
-        df = pd.read_csv(self._tablename, encoding=self._tableencoding, low_memory=False)
+        # use "None" instead of NaN values
+        df = pd.read_csv(self._tablename, encoding=self._tableencoding, low_memory=False).fillna(value="None")
         print ("len(df)",len(df))
         if (len(df)) == 0:
             return
@@ -157,7 +161,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
 
         vtk_blocks = _NCubeGeometryOnTopography(df, dem)
         if len(vtk_blocks)>0:
-            print ("vtk_blocks", len(vtk_blocks))
+            #print ("vtk_blocks", len(vtk_blocks))
             mb = vtkMultiBlockDataSet.GetData(outInfo, 0)
             mb.SetNumberOfBlocks(len(vtk_blocks))
             rowidx = 0
@@ -253,6 +257,23 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._toponame != name:
             self._toponame = name
             self.Modified()
+
+    @smproperty.xml("""
+        <IntVectorProperty name="TopographyIgnore"
+                       command="SetTopographyZIgnore"
+                       number_of_elements="1"
+                       default_values="0">
+        <BooleanDomain name="bool" />
+        <Documentation>
+            Use this checkbox to ignore topography depths.
+        </Documentation>
+        </IntVectorProperty>
+    """)
+    def SetTopographyZIgnore(self, value):
+        print ("SetTopographyZIgnore", value)
+        self._zignore = value
+        self.Modified()
+
 
     @smproperty.stringvector(name="Top Easting", number_of_elements="1")
     @smdomain.xml(\
