@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(__file__))
 from NCubeGeometryOnTopographyBlockSource import *
 from NCubeImageOnTopographySource import *
 from NCubeLASReader import *
+from NCubeReprojectFilter import *
 from NCubeShapefileWriter import *
 from NCubeTableOnTopographyBlockSource import *
 from NCubeTopographyBlockSource import *
-
