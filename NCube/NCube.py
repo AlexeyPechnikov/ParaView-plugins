@@ -4,15 +4,6 @@
 # pechnikov@mobigroup.ru (email)
 # License: http://opensource.org/licenses/MIT
 
-
-def _str(text):
-    import sys
-    # fix string issue for Python 2
-    if sys.version_info < (3, 0) and hasattr(text, 'encode'):
-        # text.encode('ascii','ignore') || 'replace'
-        return text.encode('utf-8')
-    return str(text)
-
 # process [multi]geometry
 def _NCubeGeometryToPolyData(geometry, dem=None):
     #from shapely.geometry.base import BaseGeometry, BaseMultipartGeometry
@@ -183,7 +174,7 @@ def _NCubeGeometryOnTopography(df, dem):
         vtk_appendPolyData.Update()
         vtk_block = vtk_appendPolyData.GetOutput()
 
-        vtk_blocks.append((_str(group),vtk_block))
+        vtk_blocks.append((str(group),vtk_block))
 
     #print ("_NCUBEGeometryOnTopography end")
 
@@ -307,7 +298,7 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
             vtk_arr = vtkBitArray()
         else:
             # some different datatypes could be saved as strings
-            value = _str(value)
+            value = str(value)
             vtk_arr = vtkStringArray()
 
         vtk_arr.SetNumberOfComponents(components)
