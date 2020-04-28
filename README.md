@@ -29,7 +29,15 @@ Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) p
 
 ### N-Cube ParaView Plugin Sources:
 
+**N-Cube Image On Topography Source** - data source for georeferenced image. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Use Sea Level for Negative Topography" parameter allows to replace negative topography values by zeroes.
+
+**N-Cube Reproject Filter** - TODO.
+
 **N-Cube Shapefile On Topography Block Source** - data source for 2D/3D Shapefile or GeoJSON. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers. All shapefile fields presented in the ouput.
+
+**N-Cube Table Block Source** - data source for CSV table data to produce geometries like to wells. 
+
+**N-Cube Table on Topography Block Source** - data source for CSV table data to produce geometries on optional topography. See for details [NCubeTableOnTopographyBlockSource](https://github.com/mobigroup/ParaView-plugins/tree/master/NCube/NCubeTableOnTopographyBlockSource)
 
 **N-Cube Topography Block Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. Only "Group by Field" parameter presented in the ouput.
 
