@@ -88,6 +88,14 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if (len(df)) == 0:
             return
 
+        # check used columns
+        if self._azcol is not None:
+            df[self._azcol] = pd.to_numeric(df[self._azcol], errors='coerce')
+            df = df[df[self._azcol].notnull()]
+        if self._dipcol is not None:
+            df[self._dipcol] = pd.to_numeric(df[self._dipcol], errors='coerce')
+            df = df[df[self._dipcol].notnull()]
+
         # calculate coordinates
         xs = df[self._xcol]
         ys = df[self._ycol]
