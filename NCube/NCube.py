@@ -193,9 +193,10 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
     # reproject when the both coordinate systems are defined and these are different
     if df_crs and dem_crs:
         df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[dem_extent])
-        print ("df_extent", df_extent.crs)
+        print ("df_extent", df_extent.crs, df_extent.geometry)
         extent_reproj = df_extent.to_crs({'init' : df_crs})['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
+        print ("crop geometry", extent_reproj.is_valid,extent_reproj.wkt)
         if extent_reproj.is_valid:
             # geometry intersection to raster extent in geometry coordinate system
             df = df[df.geometry.intersects(extent_reproj)].copy()
