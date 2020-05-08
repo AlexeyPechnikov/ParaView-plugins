@@ -1,5 +1,7 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
 
+![ParaView_ProgrammableFilter_reproject](https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/ParaView_ProgrammableFilter_reproject.jpg)
+
 ## About the project
 
 [N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
