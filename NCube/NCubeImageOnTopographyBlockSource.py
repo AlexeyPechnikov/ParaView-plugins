@@ -6,6 +6,13 @@
 
 from paraview.util.vtkAlgorithm import * 
 
+# load error fix for paraView 5.8.1rc1 Python3
+try:
+    import xarray
+except:
+    import sys
+    print (sys.exc_info()[0])
+
 def _NCubeImageOnTopographyToGrid(dem, image, mask_magic=False):
     from vtk import vtkPoints, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT, VTK_UNSIGNED_CHAR
     from vtk.util import numpy_support as vn
