@@ -16,6 +16,8 @@ def _NCubeTopographyToGrid(dem):
     from vtk import vtkPoints, vtkStructuredGrid, vtkThreshold, vtkDataObject, VTK_FLOAT
     from vtk.util import numpy_support as vn
     import numpy as np
+    
+    #print (dem)
 
     xs = dem.x.values
     ys = dem.y.values
@@ -25,6 +27,8 @@ def _NCubeTopographyToGrid(dem):
         values = dem.values.T
 
     # create raster mask by geometry and for NaNs
+    #mask = values.ravel('C')==dem.nodatavals[0]
+    #print (mask)
     (yy,xx) = np.meshgrid(ys, xs)
     vtk_points = vtkPoints()
     points = np.column_stack((xx.ravel('F'),yy.ravel('F'),values.ravel('C')))
@@ -37,7 +41,11 @@ def _NCubeTopographyToGrid(dem):
     sgrid.SetDimensions(len(xs), len(ys), 1)
     sgrid.SetPoints(vtk_points)
 
-    array = vn.numpy_to_vtk(values.ravel(), deep=True, array_type=VTK_FLOAT)
+    # mask NODATA values
+    _values = values.ravel('C').astype(float)
+    _values[_values == dem.nodatavals[0]] = np.nan
+    #array = vn.numpy_to_vtk(values.ravel('C'), deep=True, array_type=VTK_FLOAT)
+    array = vn.numpy_to_vtk(_values, deep=True, array_type=VTK_FLOAT)
     array.SetName("z")
     sgrid.GetPointData().AddArray(array)
 
@@ -89,6 +97,7 @@ def _NCubeTopography(dem, df):
         (xs, _) = rasterio.transform.xy(out_transform, out_image.shape[1]*[0], range(out_image.shape[1]), offset='center')
         (_, ys) = rasterio.transform.xy(out_transform, range(out_image.shape[0]), out_image.shape[0]*[0], offset='center')
         da = xr.DataArray(out_image, coords={'x': xs, 'y': ys}, dims=('y', 'x'))
+        da.attrs['nodatavals'] = (dem.nodata,)
         # process rasterized geometry
         vtk_ugrid = _NCubeTopographyToGrid(da)
         if vtk_ugrid is None:
