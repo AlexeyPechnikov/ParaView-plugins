@@ -29,6 +29,7 @@ def _NCubeDataSetToGeoDataFrame(vtk_data, extent_only=False):
             col = vtk_data.GetPointData().GetArrayName(idx)
             values = vtk_data.GetPointData().GetArray(idx)
             nvalues = numpy_support.vtk_to_numpy(values)
+            #nvalues[np.abs(nvalues)>1e37] = np.nan
             df[col] = nvalues
 
         geom = gpd.GeoSeries(map(Point, zip(df.x, df.y, df.z)))
