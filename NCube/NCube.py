@@ -185,16 +185,22 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
 
     # extract the geometry coordinate system
     if df.crs is not None and df.crs != {}:
-        df_crs =  str(df.crs['init'])
+        df_crs =  df.crs
     else:
         df_crs = None
     print ("df_crs",df_crs,"dem_crs",dem_crs)
 
     # reproject when the both coordinate systems are defined and these are different
     if df_crs and dem_crs:
-        df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[dem_extent])
+        # load error fix for paraView 5.8.1rc1 Python3
+        try:
+            # ParaView 5.7 Python 2.7
+            df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[dem_extent])
+        except:
+            # ParaView 5.8 RC2 Python 3.7
+            df_extent = gpd.GeoDataFrame([], crs=dem_crs, geometry=[dem_extent])
         print ("df_extent", df_extent.crs, df_extent.geometry)
-        extent_reproj = df_extent.to_crs({'init' : df_crs})['geometry'][0]
+        extent_reproj = df_extent.to_crs(df_crs)['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
         print ("crop geometry", extent_reproj.is_valid,extent_reproj.wkt)
         if extent_reproj.is_valid:
@@ -203,8 +209,13 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
             # dangerous operation, see https://github.com/Toblerity/Shapely/issues/553
             df['geometry'] = df.geometry.intersection(extent_reproj)
 
-        # reproject [cropped] geometry to original raster coordinates if needed
-        return df.to_crs({'init' : dem_crs})
+        try:
+            # ParaView 5.7 Python 2.7
+            # reproject [cropped] geometry to original raster coordinates if needed
+            return df.to_crs({'init' : dem_crs})
+        except:
+            # ParaView 5.8 RC2 Python 3.7
+            return df.to_crs(dem_crs)
 
     # let's assume the coordinate systems are the same
     if dem_extent is not None:
@@ -284,12 +295,18 @@ def _NCubeGeoDataFrameRowToVTKArrays(items):
             #print ('vtkFloatArray')
             vtk_arr = vtkFloatArray()
             components = len(value)
-        elif isinstance(value, (int)) or (type(value)==str and value.replace('-','',1).isdigit()):
+#        elif isinstance(value, (int)) or (type(value)==str and value.replace('-','',1).isdigit()):
+        elif isinstance(value, (int)) \
+                or (type(value)==str and value[0] in ['-','+'] and value[1:].isdigit()) \
+                or (type(value)==str and value.isdigit()):
             # ParaView category editor converts strings to numeric when it's possible
             #print('vtkIntArray')
             value = int(value)
             vtk_arr = vtkIntArray()
-        elif isinstance(value, (float)) or (type(value)==str and value.replace('-','',1).replace('.','',1).isdigit()):
+#        elif isinstance(value, (float)) or (type(value)==str and value.replace('-','',1).replace('.','',1).isdigit()):
+        elif isinstance(value, (float)) \
+                or (type(value)==str and value[0] in ['-','+'] and value[1:].replace('.','',1).isdigit()) \
+                or (type(value)==str and value.replace('.','',1).isdigit()):
             # ParaView category editor converts strings to numeric when it's possible
             #print ('vtkFloatArray')
             value = float(value)
