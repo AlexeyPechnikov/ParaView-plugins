@@ -7,7 +7,7 @@
 from paraview.util.vtkAlgorithm import * 
 from vtkmodules.vtkCommonDataModel import vtkDataSet
 
-def _NCubeDataSetToNetCDFXY(vtk_data):
+def _NCubeDataSetToNetCDF2D(vtk_data):
     import pandas as pd
     import numpy as np
     from vtk.util import numpy_support
@@ -24,20 +24,18 @@ def _NCubeDataSetToNetCDFXY(vtk_data):
         #nvalues[np.abs(nvalues)>1e37] = np.nan
         df[col] = nvalues
 
-    #ds = df.set_index(['y','x']).to_xarray()
-    ds = df.groupby(['y','x']).mean().to_xarray()
-    ds['z'] = ds.z.values[0,0]
-    print (ds)
+    ds = df.groupby(['z','y','x']).mean().to_xarray().squeeze()
+    #print (ds)
 
     return ds
 
 #------------------------------------------------------------------------------
 # N-Cube DataSet to Shapefile Writer
 #------------------------------------------------------------------------------
-@smproxy.writer(extensions="nc", file_description="NetCDF XY", support_reload=False)
+@smproxy.writer(extensions="nc", file_description="NetCDF 2D", support_reload=False)
 @smproperty.input(name="Input", port_index=0)
 @smdomain.datatype(dataTypes=["vtkDataSet"], composite_data_supported=False)
-class NCubeNetCDFXYWriter(VTKPythonAlgorithmBase):
+class NCubeNetCDF2DWriter(VTKPythonAlgorithmBase):
     def __init__(self):
         VTKPythonAlgorithmBase.__init__(self, nInputPorts=1, nOutputPorts=0, inputType='vtkDataSet')
         self._filename = None
@@ -51,9 +49,9 @@ class NCubeNetCDFXYWriter(VTKPythonAlgorithmBase):
             self.Modified()
 
     def RequestData(self, request, inInfoVec, outInfoVec):
-        print ("NCubeNetCDFXYWriter")
+        print ("NCubeNetCDF2DWriter")
         vtk_data = vtkDataSet.GetData(inInfoVec[0], 0)
-        ds = _NCubeDataSetToNetCDFXY(vtk_data)
+        ds = _NCubeDataSetToNetCDF2D(vtk_data)
         ds.to_netcdf(self._filename)
         return 1
 
