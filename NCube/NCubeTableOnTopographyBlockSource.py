@@ -47,6 +47,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         self._zunit = 'm'
         self._zinvert = 0
         self._zignore = 0
+        self._vectorname0 = 'xyzvector'
 
         self._azcol = None
         self._dipcol = None
@@ -103,6 +104,7 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
         if self._zcol is not None:
             zscale = self._scaleunits[self._zunit]
             zs = (1 if self._zinvert == 0 else -1)*zscale*df[self._zcol]
+        df[self._vectorname0] = [(0,0,0) if np.any(np.isnan(v)) else v for v in zip(xs,ys,zs)]
 
         # length for unit vector or geometry line
         if self._lengthcol is None:
@@ -430,4 +432,10 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
     def SetDirectionVectorName(self, vname):
         print("SetDirectionVectorName ", vname)
         self._vectorname = vname
+        self.Modified()
+
+    @smproperty.stringvector(name="TopVector", default_values="vector")
+    def SetTopVectorName(self, vname):
+        print("SetTopVectorName ", vname)
+        self._vectorname0 = vname
         self.Modified()
