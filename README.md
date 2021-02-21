@@ -1,12 +1,12 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
 
-![ParaView_ProgrammableFilter_reproject](https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/ParaView_ProgrammableFilter_reproject.jpg)
+<img src="https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/ParaView_ProgrammableFilter_reproject.jpg" width="400">
 
 ## About the project
 
-[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc. It's compact and extensible through the published version is focused on just some most popular data formats and conversion types. 
+[N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc.
 
-This plugin is tested on MacOS only because we still work on the functionality. We will test it completely on Linux and Windows for ParaView 5.8 release (waiting in 1-2 months). For now, you can try the plugin on Linux and Windows in ParaView 5.7 with Python 2.7.
+We use this plugin on MacOS only although it's cross platform and can be used with Linux and Windows ParaView builds too. 
 
 ## How to Use ParaView 5.9.0 With Python 3.8 on MacOS
 
@@ -16,7 +16,7 @@ Note: while I tried to sign 3rd party binaries compiled by GCC compiler by self-
 
 To extend your ParaView by 3rd party Python libraries and ParaView Python plugins follow instructions below:
 
- * [One-time step] Install Python 3.8:
+ * [One-time step] Install Python 3.8 using [Homebrew](https://brew.sh):
  ```
  brew install python@3.8
  ```
@@ -27,7 +27,7 @@ To extend your ParaView by 3rd party Python libraries and ParaView Python plugin
   numpy xarray pandas geopandas shapely vtk rasterio lasio
 ```
 
-* [One-time step]Create ParaView wrapper script pv5.9 with this content:
+* [One-time step] Create ParaView wrapper script pv5.9 with this content:
 ```
 #!/bin/sh
 PYTHONPATH=/usr/local/lib/python3.8/site-packages
@@ -42,22 +42,15 @@ PYTHONPATH="$PYTHONPATH" GDAL_DATA="$GDAL_DATA" "$APPPATH/Contents/MacOS/paravie
  ```
 Note: you are able to see debug messages for developers in the Terminal Window.
 
- * [One-time step] For the first launch download the plugin code or clone the repository and load from ParaView(Tools -> Manage Plugins) this file [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer. Setup 'Auto Load' checkbox if you need to use the plugin later otherwise it should be loaded at next ParaView launches again.
+ * [One-time step] For the first launch download the plugin code or clone the repository and load from ParaView("Tools" -> "Manage Plugins" -> "Load New ...") this file [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer. Setup 'Auto Load' checkbox if you need to use the plugin later otherwise it should be loaded at next ParaView launches again.
+
+<img src="screenshots/NcubePlugin.jpg" width="400">
 
 ## How to Use old ParaView versions With Python 2.7
 
-If you still need to have Python 2.7 compatible build see this link: [Version compatiable with Python 2.7 and Python 3.7+](https://github.com/mobigroup/ParaView-plugins/releases/tag/python2.7)
+If you still need to have Python 2.7 compatible build see this link: [Version compatiable with Python 2.7 and Python 3.7+](https://github.com/mobigroup/ParaView-plugins/releases/tag/python2.7) Use the same instructions as above for Python 3.8.
 
-Recent ParaView release 5.7 for MacOS integrated with Python 2.7 and so we need to use Python 2.7 installation and modules on MacOS. On Windows and Linux operation systems we can select between Python 2.7 and 3.7. Anyway, use the same Python as your ParaView build requires.
-
-Follow instructions to install Python 2.7 and configure PYTHONPATH environment variable as this article describing: https://www.linkedin.com/pulse/paraview-pvgeo-plugins-howto-alexey-pechnikov/
-
-Install required Python 2.7 modules:
-```
-pip2.7 install numpy xarray pandas geopandas shapely vtk rasterio lasio
-```
-
-Load [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer.
+Note: there are some non-latin symbols issues with Python 2.7. Maybe you need to remove non-latin fields in your data files and rename them to use ASCII symbols only.
 
 ### N-Cube ParaView Plugin Readers:
 
@@ -91,15 +84,10 @@ See also our code snippets repository [ParaView Programmable Source and Programm
 
 ## Screenshots
 
-![NCubeTopographyBlockSource](screenshots/NCubeTopographyBlockSource.jpg)
-
-![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource1.jpg)
-
-![NCubeShapefileOnTopographyBlockSource](screenshots/NCubeShapefileOnTopographyBlockSource2.jpg)
-
-![Search ParaView Sources for N-Cube Plugin Data Sources](screenshots/NCubeSources.jpg)
-
-![Load ParaView N-Cube Plugin](screenshots/NcubePlugin.jpg)
+<img src="screenshots/NCubeTopographyBlockSource.jpg" width="400">
+<img src="screenshots/NCubeShapefileOnTopographyBlockSource1.jpg" width="400">
+<img src="screenshots/NCubeShapefileOnTopographyBlockSource2.jpg" width="400">
+<img src="screenshots/NCubeSources.jpg" width="400">
 
 ## Used Technologies
 
