@@ -54,8 +54,13 @@ To extend your ParaView by 3rd party Python libraries and ParaView Python plugin
 ```
 #!/bin/sh
 PYTHONPATH=/usr/local/lib/python3.8/site-packages
-GDAL_DATA=/usr/local/lib/python3.8/site-packages/rasterio/gdal_data
+GDAL_DATA="$PYTHONPATH/rasterio/gdal_data"
 APPPATH=/Applications/ParaView-5.9.0.app
+
+mkdir -p "$APPPATH/Contents//Libraries/lib/python3.8/lib-dynload/"
+cp /usr/local/Cellar/python@3.8/3.8.*/Frameworks/Python.framework/Versions/3.8/lib/python3.8/lib-dynload/_lzma.cpython-38-darwin.so \
+	"$APPPATH/Contents//Libraries/lib/python3.8/lib-dynload/_lzma.cpython-38-darwin.so"
+
 PYTHONPATH="$PYTHONPATH" GDAL_DATA="$GDAL_DATA" "$APPPATH/Contents/MacOS/paraview"
 ```
 
