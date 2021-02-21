@@ -7,6 +7,30 @@
 
 We use this plugin on MacOS only although it's cross platform and can be used with Linux and Windows ParaView builds too. 
 
+## N-Cube ParaView Plugin Readers:
+
+**N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
+
+### N-Cube ParaView Plugin Writers:
+
+**ESRI Shapefile** - Use ParaView menu Save -> Save Data -> ESRI Shapefile(\*.shp) to save geometry as ESRI Shapefile (Point). By performance reasons in case when the geometry includes more than 1M points only bounding box will be saved.
+
+## N-Cube ParaView Plugin Sources:
+
+**N-Cube Image On Topography Source** - data source for georeferenced image. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Use Sea Level for Negative Topography" parameter allows to replace negative topography values by zeroes.
+
+**N-Cube Reproject Filter** - TODO.
+
+**N-Cube Shapefile On Topography Block Source** - data source for 2D/3D Shapefile or GeoJSON. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers. All shapefile fields presented in the ouput.
+
+**N-Cube Table Block Source** - data source for CSV table data to produce geometries like to wells. 
+
+**N-Cube Table on Topography Block Source** - data source for CSV table data to produce geometries on optional topography. See for details [NCubeTableOnTopographyBlockSource](https://github.com/mobigroup/ParaView-plugins/tree/master/NCube/NCubeTableOnTopographyBlockSource)
+
+**N-Cube Topography Block Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. Only "Group by Field" parameter presented in the ouput.
+
+Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
+
 ## How to Use ParaView 5.9.0 With Python 3.8 on MacOS
 
 Fortunately, ParaView 5.9 on MacOS supports Python 3.8 and we can drop Python 2.7 support now! Today protected MacOS applications (signed and hardened) are not able to load 3rd party binary libraries (required for the plugin) and we need to use special ParaView build to load them: [ParaView-5.9.0-MPI-OSX10.13-Python3.8-64bit.unsigned.dmg](https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.9&type=binary&os=macOS&downloadFile=ParaView-5.9.0-MPI-OSX10.13-Python3.8-64bit.unsigned.dmg)
@@ -53,30 +77,6 @@ Note: you are able to see debug messages for developers in the Terminal Window.
 If you still need to have Python 2.7 compatible build see this link: [Version compatiable with Python 2.7 and Python 3.7+](https://github.com/mobigroup/ParaView-plugins/releases/tag/python2.7) Use the same instructions as above for Python 3.8.
 
 Note: there are some non-latin symbols issues with Python 2.7. Maybe you need to remove non-latin fields in your data files and rename them to use ASCII symbols only.
-
-### N-Cube ParaView Plugin Readers:
-
-**N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
-
-### N-Cube ParaView Plugin Writers:
-
-**ESRI Shapefile** - Use ParaView menu Save -> Save Data -> ESRI Shapefile(\*.shp) to save geometry as ESRI Shapefile (Point). By performance reasons in case when the geometry includes more than 1M points only bounding box will be saved.
-
-### N-Cube ParaView Plugin Sources:
-
-**N-Cube Image On Topography Source** - data source for georeferenced image. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Use Sea Level for Negative Topography" parameter allows to replace negative topography values by zeroes.
-
-**N-Cube Reproject Filter** - TODO.
-
-**N-Cube Shapefile On Topography Block Source** - data source for 2D/3D Shapefile or GeoJSON. Optionally GeoTIFF or NetCDF topography (DEM) raster using to define Z coordinates. Optional "Group by Field" parameter produces a set of layers from geometries grouped by the field. When the "Group by Field" parameter is not defined ("None") all the geometries separated as the layers. All shapefile fields presented in the ouput.
-
-**N-Cube Table Block Source** - data source for CSV table data to produce geometries like to wells. 
-
-**N-Cube Table on Topography Block Source** - data source for CSV table data to produce geometries on optional topography. See for details [NCubeTableOnTopographyBlockSource](https://github.com/mobigroup/ParaView-plugins/tree/master/NCube/NCubeTableOnTopographyBlockSource)
-
-**N-Cube Topography Block Source** - data source for GeoTIFF or NetCDF topography (DEM) raster visualization as 3D surface. Only "Group by Field" parameter presented in the ouput.
-
-Geometry coordinate system re-projecting to raster coordinate system and the geometry cropping to the raster extent when the topography file using and the both coordinate systems are defined.
 
 ## Project Goals
 
