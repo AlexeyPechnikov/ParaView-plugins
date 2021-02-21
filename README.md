@@ -1,7 +1,5 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
-
 <img src="https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/ParaView_ProgrammableFilter_reproject.jpg" width="400">
-
 ## About the project
 
 [N-Cube ParaView plugin](NCube/NCubeParaViewPlugin.py) is [MIT-licensed](LICENSE) set of ParaView data readers/sources/filters/writers to load, process, and write well-known GIS datasets like to shapefiles, GeoTIFF rasters, etc.
@@ -46,6 +44,9 @@ Note: you are able to see debug messages for developers in the Terminal Window.
 
 <img src="screenshots/NcubePlugin.jpg" width="400">
 
+ * Select one of the added data sources in ParaView "Sources" -> "Alphabetical" menu or "Sources" -> "Search ..."
+<img src="screenshots/NCubeSources.jpg" width="400">
+
 ## How to Use old ParaView versions With Python 2.7
 
 If you still need to have Python 2.7 compatible build see this link: [Version compatiable with Python 2.7 and Python 3.7+](https://github.com/mobigroup/ParaView-plugins/releases/tag/python2.7) Use the same instructions as above for Python 3.8.
@@ -87,7 +88,6 @@ See also our code snippets repository [ParaView Programmable Source and Programm
 <img src="screenshots/NCubeTopographyBlockSource.jpg" width="400">
 <img src="screenshots/NCubeShapefileOnTopographyBlockSource1.jpg" width="400">
 <img src="screenshots/NCubeShapefileOnTopographyBlockSource2.jpg" width="400">
-<img src="screenshots/NCubeSources.jpg" width="400">
 
 ## Used Technologies
 
