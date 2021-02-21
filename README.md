@@ -8,7 +8,45 @@
 
 This plugin is tested on MacOS only because we still work on the functionality. We will test it completely on Linux and Windows for ParaView 5.8 release (waiting in 1-2 months). For now, you can try the plugin on Linux and Windows in ParaView 5.7 with Python 2.7.
 
-## How to Use
+## How to Use ParaView 5.9.0 With Python 3.8 on MacOS
+
+Fortunately, ParaView 5.9 on MacOS supports Python 3.8 and we can drop Python 2.7 support now! Today protected MacOS applications (signed and hardened) are not able to load 3rd party binary libraries (required for the plugin) and we need to use special ParaView build to load them: [ParaView-5.9.0-MPI-OSX10.13-Python3.8-64bit.unsigned.dmg](https://www.paraview.org/paraview-downloads/download.php?submit=Download&version=v5.9&type=binary&os=macOS&downloadFile=ParaView-5.9.0-MPI-OSX10.13-Python3.8-64bit.unsigned.dmg)
+
+Note: while I tried to sign 3rd party binaries compiled by GCC compiler by self-issued certificate it doesn't work (missed Apple compiler specific LC_VERSION_MIN) and we need to use the special ParaView build. Let me know if you know how to resolve the issue!
+
+To extend your ParaView by 3rd party Python libraries and ParaView Python plugins follow instructions below:
+
+ * [One-time step] Install Python 3.8:
+ ```
+ brew install python@3.8
+ ```
+
+ * [One-time step] Install required Python modules:
+```
+/usr/local/opt/python@3.8/bin/python3 -m pip install --upgrade \
+  numpy xarray pandas geopandas shapely vtk rasterio lasio
+```
+
+* [One-time step]Create ParaView wrapper script pv5.9 with this content:
+```
+#!/bin/sh
+PYTHONPATH=/usr/local/lib/python3.8/site-packages
+GDAL_DATA=/usr/local/lib/python3.8/site-packages/rasterio/gdal_data
+APPPATH=/Applications/ParaView-5.9.0.app
+PYTHONPATH="$PYTHONPATH" GDAL_DATA="$GDAL_DATA" "$APPPATH/Contents/MacOS/paraview"
+```
+
+ * Launch ParaView from MacOS Terminal by command below and save the Terminal window open while you use ParaView:
+ ```
+ pv5.9
+ ```
+Note: you are able to see debug messages for developers in the Terminal Window.
+
+ * [One-time step] For the first launch download the plugin code or clone the repository and load from ParaView(Tools -> Manage Plugins) this file [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer. Setup 'Auto Load' checkbox if you need to use the plugin later otherwise it should be loaded at next ParaView launches again.
+
+## How to Use old ParaView versions With Python 2.7
+
+If you still need to have Python 2.7 compatible build see this link: [Version compatiable with Python 2.7 and Python 3.7+](https://github.com/mobigroup/ParaView-plugins/releases/tag/python2.7)
 
 Recent ParaView release 5.7 for MacOS integrated with Python 2.7 and so we need to use Python 2.7 installation and modules on MacOS. On Windows and Linux operation systems we can select between Python 2.7 and 3.7. Anyway, use the same Python as your ParaView build requires.
 
