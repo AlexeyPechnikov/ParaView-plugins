@@ -1,4 +1,4 @@
-**N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
+## **N-Cube LAS Well Log Reader** - Read Well Log versions 1.2 and 2.0 of the LAS file specification.
 
 This data reader allows to read LAS well log files versions 1.2 and 2.0 (not version 3 because we have no these files for now). 
 
@@ -21,6 +21,6 @@ This is the direction of a celestial object, measured clockwise around the obser
 
 ## Screenshots
 
-![parameters](parameters.jpg)
+<img src="parameters.jpg" width=400>
 
 ![view.jpg](view.jpg)
