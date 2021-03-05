@@ -1,5 +1,9 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
+
+<p float="left">
 <img src="https://github.com/mobigroup/ParaView-plugins/blob/dev/screenshots/NCubeImageOnTopographyBlockSource.jpg" width="400">
+<img src="https://github.com/mobigroup/ParaView-plugins/blob/master/NCube/NCubeLASReader/view.jpg" width="400">
+</p>
 
 ## About the project
 
