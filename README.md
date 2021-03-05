@@ -74,7 +74,7 @@ PYTHONPATH="$PYTHONPATH" GDAL_DATA="$GDAL_DATA" "$APPPATH/Contents/MacOS/paravie
  ```
 Note: you are able to see debug messages for developers in the Terminal Window.
 
- * [One-time step] For the first launch download the plugin code or clone the repository and load from ParaView("Tools" -> "Manage Plugins" -> "Load New ...") this file [N-Cube ParaView plugin Python source file](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer. Setup 'Auto Load' checkbox if you need to use the plugin later otherwise it should be loaded at next ParaView launches again.
+ * [One-time step] For the first launch download the plugin code or clone the repository and load from ParaView("Tools" -> "Manage Plugins" -> "Load New ...") this file [N-Cube ParaView plugin Python source file NCubeParaViewPlugin.py](NCube/NCubeParaViewPlugin.py) placed anywhere on your computer. Setup 'Auto Load' checkbox if you need to use the plugin later otherwise it should be loaded at next ParaView launches again.
 
 <img src="screenshots/NcubePlugin.jpg" width="400">
 
