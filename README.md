@@ -1,5 +1,5 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
-<img src="https://github.com/mobigroup/gis-snippets/blob/master/ParaView/ProgrammableFilter/ParaView_ProgrammableFilter_reproject.jpg" width="400">
+<img src="https://github.com/mobigroup/ParaView-plugins/blob/dev/screenshots/NCubeImageOnTopographyBlockSource.jpg" width="400">
 
 ## About the project
 
