@@ -157,13 +157,13 @@ class NCubeTableOnTopographyBlockSource(VTKPythonAlgorithmBase):
             # create line segment
             geom = gpd.GeoSeries(map(LineString, zip(geom,_geom)))
         # add geometry
-        crs = {'init' : 'epsg:'+str(self._epsg)} if self._epsg != 0 else None
+        crs = {'epsg:'+str(self._epsg)} if self._epsg != 0 else None
         #print ("crs", crs)
         # crs initialization doesn't work here for Python 2
         df = gpd.GeoDataFrame(df, crs=crs, geometry=geom)
-        # for Python 2 only
-        df.crs = crs
-        #print ("df.crs", df.crs)
+#        # for Python 2 only
+#        df.crs = crs
+#        #print ("df.crs", df.crs)
 
         # group to multiblock
         if self._tablecol is not None:

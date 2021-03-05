@@ -80,10 +80,10 @@ def _NCubeTopography(dem, df):
     for group in groups:
         #print ("group",group)
         # Python 2 string issue wrapped
-        if hasattr(group, 'encode'):
-            geoms = df[df.index.str.match(group)].geometry
-        else:
-            geoms = df[df.index == group].geometry
+#        if hasattr(group, 'encode'):
+#            geoms = df[df.index.str.match(group)].geometry
+#        else:
+        geoms = df[df.index == group].geometry
 
         vtk_append = vtkAppendFilter()
         # rasterize geomemetry

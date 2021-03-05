@@ -105,7 +105,7 @@ def _NCubeGeometryOnTopography(df, dem):
 
     #print ("_NCUBEGeometryOnTopography start")
 
-    dem_extent = dem_crs = None
+    #dem_extent = dem_crs = None
     if dem is not None:
         # TODO: that's better to direct use NODATA values
         if dem.values.dtype not in [np.dtype('float16'),np.dtype('float32'),np.dtype('float64'),np.dtype('float128')]:
@@ -119,7 +119,9 @@ def _NCubeGeometryOnTopography(df, dem):
         dem.values[:,-1] = np.nan
 
         dem_extent = box(dem.x.min(),dem.y.min(),dem.x.max(),dem.y.max())
-        dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+        #dem_crs = dem.crs if 'crs' in dem.attrs.keys() else None
+        # TODO: FutureWarning: '+init=<authority>:<code>' syntax is deprecated. '<authority>:<code>' is the preferred method.
+        dem_crs = dem.crs.replace('+init=','')
         #print (dem.values)
         df = _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs)
 
@@ -134,11 +136,11 @@ def _NCubeGeometryOnTopography(df, dem):
     for group in groups:
         #print ("group",group)
         # Python 2 string issue wrapped
-        if hasattr(group, 'encode'):
-            # select only equals
-            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)&(df.index.str.len()==len(group))].reset_index()
-        else:
-            _df = df[df.index == group].reset_index()
+#        if hasattr(group, 'encode'):
+#            # select only equals
+#            _df = df[df.index.str.startswith(group)&df.index.str.endswith(group)&(df.index.str.len()==len(group))].reset_index()
+#        else:
+        _df = df[df.index == group].reset_index()
         #print (_df.geometry)
         vtk_appendPolyData = vtkAppendPolyData()
         # iterate rows with the same attributes and maybe multiple geometries
@@ -184,21 +186,12 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
     import geopandas as gpd
 
     # extract the geometry coordinate system
-    if df.crs is not None and df.crs != {}:
-        df_crs =  df.crs
-    else:
-        df_crs = None
+    df_crs =  df.crs
     print ("df_crs",df_crs,"dem_crs",dem_crs)
 
     # reproject when the both coordinate systems are defined and these are different
     if df_crs and dem_crs:
-        # load error fix for paraView 5.8.1rc1 Python3
-        try:
-            # ParaView 5.7 Python 2.7
-            df_extent = gpd.GeoDataFrame([], crs={'init' : dem_crs}, geometry=[dem_extent])
-        except:
-            # ParaView 5.8 RC2 Python 3.7
-            df_extent = gpd.GeoDataFrame([], crs=dem_crs, geometry=[dem_extent])
+        df_extent = gpd.GeoDataFrame([], crs=dem_crs, geometry=[dem_extent])
         print ("df_extent", df_extent.crs, df_extent.geometry)
         extent_reproj = df_extent.to_crs(df_crs)['geometry'][0]
         # if original or reprojected raster extent is valid, use it to crop geometry
@@ -208,14 +201,7 @@ def _NCubeGeoDataFrameToTopography(df, dem_extent, dem_crs=None):
             df = df[df.geometry.intersects(extent_reproj)].copy()
             # dangerous operation, see https://github.com/Toblerity/Shapely/issues/553
             df['geometry'] = df.geometry.intersection(extent_reproj)
-
-        try:
-            # ParaView 5.7 Python 2.7
-            # reproject [cropped] geometry to original raster coordinates if needed
-            return df.to_crs({'init' : dem_crs})
-        except:
-            # ParaView 5.8 RC2 Python 3.7
-            return df.to_crs(dem_crs)
+        return df.to_crs(dem_crs)
 
     # let's assume the coordinate systems are the same
     if dem_extent is not None:
