@@ -1,5 +1,7 @@
 # N-Cube ParaView plugin for 3D/4D GIS Data Visualization
 
+Hint: You can sponsor the software development on [Patreon](https://www.patreon.com/pechnikov).
+
 <p float="left">
 <img src="https://github.com/mobigroup/ParaView-plugins/blob/python3.8/screenshots/NCubeImageOnTopographyBlockSource.jpg" width="400">
 <img src="https://github.com/mobigroup/ParaView-plugins/blob/master/NCube/NCubeLASReader/view.jpg" width="400">
